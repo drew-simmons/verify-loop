@@ -101,7 +101,7 @@ else
   jq -r --argjson t "$THRESHOLD" '
     [.entries[] | select(.score > $t)]
     | if length == 0 then "  no changed function scores above \($t)"
-      else .[] | "  \(.file):\(.start_line) \(.symbol)  CRAP \(.score)  CC \(.complexity)  coverage \(if .coverage == null then "none" else "\(.coverage)%" end)"
+      else .[] | "  \(.file | ltrimstr("./")):\(.start_line) \(.symbol)  CRAP \((.score * 10 | round) / 10)  CC \(.complexity | round)  coverage \(if .coverage == null then "none" else "\(.coverage | round)%" end)"
       end
   ' "$OUT/crap.json" 2>/dev/null
 fi
@@ -123,6 +123,8 @@ for f in crap lawbook; do
 done
 jq -s --argjson t "$THRESHOLD" --arg format session -f "$HERE/to-hunk.jq" \
   "$OUT/crap.json" "$OUT/lawbook.json" >"$OUT/comments.json"
+jq -s --argjson t "$THRESHOLD" --arg format sidecar -f "$HERE/to-hunk.jq" \
+  "$OUT/crap.json" "$OUT/lawbook.json" >"$OUT/notes.json"
 COUNT=$(jq '.comments | length' "$OUT/comments.json")
 if command -v hunk >/dev/null 2>&1 && hunk session get --repo . >/dev/null 2>&1; then
   hunk session comment clear --repo . --yes >/dev/null 2>&1
@@ -131,10 +133,8 @@ if command -v hunk >/dev/null 2>&1 && hunk session get --repo . >/dev/null 2>&1;
   fi
   echo "  $COUNT comment(s) in the live Hunk session"
 else
-  jq -s --argjson t "$THRESHOLD" --arg format sidecar -f "$HERE/to-hunk.jq" \
-    "$OUT/crap.json" "$OUT/lawbook.json" >"$OUT/notes.json"
   echo "  no live Hunk session; wrote $OUT/notes.json ($COUNT annotation(s))"
-  echo "  open it with: hunk diff --agent-context $OUT/notes.json"
+  echo "  open it with: hunk diff --agent-notes --agent-context $OUT/notes.json"
 fi
 
 echo

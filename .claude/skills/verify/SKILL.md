@@ -23,4 +23,4 @@ One command, one exit code. The script owns the stage order; you own the fixes.
 - A function fails when its CRAP score is above 5. CRAP is `cc² × (1 − coverage)³ + cc`, so a function with complexity above 5 fails even when fully covered. The fix is tests for the uncovered branches, a split into smaller functions, or both.
 - A rerun on an unchanged tree returns at once; the script remembers the last green change.
 - Do not launch `hunk diff` or `hunk show`. The human owns the TUI. When a session is open the script posts the findings into it; read the human's replies with `hunk session review --repo . --json --include-notes`. For a conversational review inside Hunk, run `hunk skill path` and read that file first.
-- `.verify/notes.json` is written when no Hunk session is open. Tell the user they can open it with `hunk diff --agent-context .verify/notes.json`.
+- `.verify/notes.json` is written when no Hunk session is open. Tell the user they can open it with `hunk diff --agent-notes --agent-context .verify/notes.json`.

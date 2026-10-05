@@ -8,15 +8,17 @@
 # `sidecar` emits the file `hunk diff --agent-context <file>` reads.
 
 def pct: if . == null then "no" else "\(. | round)%" end;
+def one: (. * 10 | round) / 10;
+def relative: ltrimstr("./");
 
 def crap_comments:
   ((.[0] // {}).entries // [])
   | map(select(.score > $t))
   | map({
-      filePath: .file,
+      filePath: (.file | relative),
       newLine: .start_line,
-      summary: "CRAP \(.score) · CC \(.complexity) · \(.coverage | pct) coverage · \(.symbol)",
-      rationale: "Complexity \(.complexity) with \(.coverage | pct) line coverage scores above \($t). Cover its branches with tests, or split it."
+      summary: "CRAP \(.score | one) · CC \(.complexity | round) · \(.coverage | pct) coverage · \(.symbol)",
+      rationale: "Complexity \(.complexity | round) with \(.coverage | pct) line coverage scores above \($t). Cover its branches with tests, or split it."
     });
 
 def law_comments:
@@ -29,7 +31,7 @@ def law_comments:
           filePath: .path,
           newLine: (.line // 1),
           summary: "[\($rule.id)] \(.message)\(if .decision then " (noul \(.decision.noul))" else "" end)",
-          rationale: ($rule.description // "lawbook rule \($rule.id)") + " (level \($rule.level), \($rule.status))"
+          rationale: (($rule.description // "lawbook rule \($rule.id)") + " (level \($rule.level), \($rule.status))")
         });
 
 (crap_comments + law_comments) as $comments

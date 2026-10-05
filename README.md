@@ -35,9 +35,10 @@ To watch it in Hunk, open a second terminal first:
 hunk diff --watch
 ```
 
-The comments land in that window at the end of every `verify` run. Without a
-session, `verify` writes `.verify/notes.json` and tells you to open it with
-`hunk diff --agent-context .verify/notes.json`.
+The comments land in that window at the end of every `verify` run. `verify`
+also writes the same findings to `.verify/notes.json`, Hunk's sidecar format,
+so without a live session you can open them later with
+`hunk diff --agent-notes --agent-context .verify/notes.json`.
 
 ## One definition of "the change"
 
@@ -133,8 +134,11 @@ in `.verify/rounds`, capped, and reset on a green run.
 
 ## Status
 
-Verified here: stages 1–4 and 6 end to end through `demo.sh`, the Stop hook's
-block output on a red tree, the sidecar file against Hunk's parser. Not
-exercised here: a live Hunk session (no TTY in the build environment) and the
-Bedrock stage (no credentials). Both paths degrade to a message rather than a
-failure.
+Verified end to end in a Linux container: `demo.sh` (red, green, cached),
+the Stop hook's block output on a red tree and silence on a clean one, the
+SessionStart hook's idempotent second run, and both Hunk paths against a real
+`hunk diff` session under a pseudo-terminal: `comment clear` plus
+`comment apply` left exactly the current findings as live comments, and
+`hunk session reload -- diff --agent-context .verify/notes.json` loaded the
+sidecar as review notes on the same lines. Not exercised: the Bedrock stage,
+which needs credentials; it degrades to a skip message without them.

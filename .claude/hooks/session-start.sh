@@ -26,7 +26,15 @@ fi
 
 if ! command -v lawbook >/dev/null 2>&1; then
   log "installing lawbook from source (it is not on npm)"
-  npm install --global github:drew-simmons/lawbook >/dev/null 2>&1 || true
+  TMP=$(mktemp -d)
+  git clone -q --depth 1 https://github.com/drew-simmons/lawbook "$TMP/lawbook" >/dev/null 2>&1 \
+    && (cd "$TMP/lawbook" \
+        && corepack enable >/dev/null 2>&1 \
+        && pnpm install --frozen-lockfile >/dev/null 2>&1 \
+        && pnpm pack --pack-destination "$TMP" >/dev/null 2>&1 \
+        && npm install --global "$TMP"/lawbook-*.tgz >/dev/null 2>&1) \
+    || log "lawbook install failed; build it from https://github.com/drew-simmons/lawbook"
+  rm -rf "$TMP"
 fi
 
 if ! command -v hunk >/dev/null 2>&1; then
