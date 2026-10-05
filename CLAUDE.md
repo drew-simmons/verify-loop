@@ -3,8 +3,9 @@
 A worked example of a verification loop for Claude Code: poly-crap, lawbook,
 and Hunk on one definition of the change, behind one script with one exit
 code. `src/` is the project the loop verifies; `.claude/` is the loop;
-`proof/` shows the loop catching real mistakes, how long it takes, and how it
-scales.
+`proof/` shows the loop catching real mistakes, how long it takes, how it
+scales, and (in `proof/compare/`) how it fares against prompting alone and
+against a long steering file.
 
 ## Commands
 
@@ -18,6 +19,8 @@ sh proof/bench.sh                          # stage-by-stage timings
 sh proof/scale.sh 10 50 200                # timings as the codebase grows
 sh proof/prove-llm.sh --stub               # the model stage end to end, no credentials
 AWS_REGION=us-east-1 sh proof/prove-llm.sh # the same with Sonnet 5.5 on Bedrock
+sh proof/compare/compare.sh [A|B|C] [--tasks 01,05]   # headless Claude Code under three setups, scored by the gate
+sh proof/compare/report.sh                 # the comparison table from the results
 lawbook check . --no-llm                   # the clean-code rules alone
 lawbook test .                             # the prose standards against their fixtures
 ```

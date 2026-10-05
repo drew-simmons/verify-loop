@@ -1,0 +1,12 @@
+diff --git a/src/inventory.js b/src/inventory.js
+index d2a313a..4ea0b29 100644
+--- a/src/inventory.js
++++ b/src/inventory.js
+@@ -6,6 +6,7 @@ export function reserve(stock, sku, quantity) {
+   assertPositiveInteger("quantity", quantity);
+   const available = stock[sku] ?? 0;
+   if (available < quantity) {
++    console.warn(JSON.stringify({ event: "reserve_failed", sku, wanted: quantity, available }));
+     throw new InsufficientStockError(sku, quantity, available);
+   }
+   return { ...stock, [sku]: available - quantity };

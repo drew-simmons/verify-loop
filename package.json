@@ -14,6 +14,7 @@
     "demo": "sh demo.sh",
     "prove": "sh proof/prove.sh",
     "bench": "sh proof/bench.sh",
-    "scale": "sh proof/scale.sh"
+    "scale": "sh proof/scale.sh",
+    "compare": "sh proof/compare/compare.sh"
   }
 }

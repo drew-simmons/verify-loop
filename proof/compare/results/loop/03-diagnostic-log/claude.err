@@ -1,0 +1,1 @@
+Ignoring 17 permissions.allow entries from .claude/settings.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["/tmp/claude-0/-home-user/0981c065-1197-5a4b-9614-ff81b2a97b25/scratchpad/cmp-dry/C-03-diagnostic-log"].hasTrustDialogAccepted: true in /root/.claude.json.
