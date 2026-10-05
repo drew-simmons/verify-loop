@@ -1,90 +1,38 @@
-diff --git a/src/orders.js b/src/orders.js
-index b20288a..d3d79b6 100644
---- a/src/orders.js
-+++ b/src/orders.js
-@@ -1,7 +1,7 @@
- import { findProduct } from "./catalog.js";
- import { lines } from "./cart.js";
- import { reserve } from "./inventory.js";
--import { priceCart } from "./pricing.js";
-+import { loyaltyPoints, priceCart } from "./pricing.js";
- import { shippingCost, shippingTier } from "./shipping.js";
- import { taxFor } from "./tax.js";
- 
-@@ -23,7 +23,7 @@ function reserveAll(stock, cart) {
-  * `deps` supplies `now()` and `nextId()` so callers, and tests, control time and ids.
-  * Returns { order, stock } where stock is the inventory after the reservation.
-  */
--export function placeOrder({ cart, catalog, stock, discountCode, region, zone, express }, deps) {
-+export function placeOrder({ cart, catalog, stock, discountCode, region, zone, express, membership }, deps) {
-   const remaining = reserveAll(stock, cart);
-   const price = priceCart(cart, catalog, discountCode);
-   const tier = shippingTier(cartWeight(cart, catalog), zone, express);
-@@ -36,6 +36,7 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
-     ...price,
-     tax,
-     shipping: { tier, cost: shipping },
-+    points: loyaltyPoints(price.net, { membership, express, discounted: price.discount > 0 }),
-     total: price.net + tax + shipping,
-   };
-   return { order, stock: remaining };
 diff --git a/src/pricing.js b/src/pricing.js
-index b00e393..575c79b 100644
+index b00e393..68fc6e7 100644
 --- a/src/pricing.js
 +++ b/src/pricing.js
-@@ -23,6 +23,29 @@ export function discountFor(amount, code) {
-   return discount === undefined ? 0 : discount(amount);
+@@ -29,3 +29,28 @@ export function priceCart(cart, catalog, code) {
+   const discount = discountFor(base, code);
+   return { subtotal: base, discount, net: base - discount };
  }
- 
-+/** Points multiplier by membership tier; any other member earns one point per dollar. */
++
++/** Points multiplier by membership tier. Anyone not listed earns at the base rate. */
 +const TIER_MULTIPLIERS = { silver: 2, gold: 3 };
 +
-+/** Flat points added to an order that ships express. */
++/** Whether a discount code halves the points: it does for everyone but gold members. */
++const HALVED_BY_DISCOUNT = { gold: false };
++
 +const EXPRESS_BONUS = 50;
 +
-+/** Share of points kept: discounted orders keep half, except gold members who keep all. */
-+function keptShare(membership, discounted) {
-+  return discounted && membership !== "gold" ? 0.5 : 1;
++/** Points for the member tier and express shipping of an order, before any halving. */
++function rawPoints(net, member, express) {
++  const base = Math.floor(net / 100) * (TIER_MULTIPLIERS[member] ?? 1);
++  return express ? base + EXPRESS_BONUS : base;
 +}
 +
 +/**
-+ * Loyalty points for an order: one per whole dollar of the net cents, times the tier
-+ * multiplier, plus the express bonus, halved (rounded down) when a discount code was
-+ * used unless the member is gold. Always a whole number.
++ * Loyalty points earned on an order: one per whole dollar of the net amount in cents,
++ * times 2 for silver and 3 for gold, plus 50 for express shipping. A discount code
++ * halves the total, bonus included, unless the member is gold. Always a whole number.
 + */
-+export function loyaltyPoints(netCents, { membership, express, discounted }) {
-+  const multiplier = TIER_MULTIPLIERS[membership] ?? 1;
-+  const bonus = express ? EXPRESS_BONUS : 0;
-+  const earned = Math.floor(netCents / 100) * multiplier + bonus;
-+  return Math.floor(earned * keptShare(membership, discounted));
++export function loyaltyPoints(net, { member, express = false, discounted = false } = {}) {
++  const points = rawPoints(net, member, express);
++  const halved = discounted && (HALVED_BY_DISCOUNT[member] ?? true);
++  return halved ? Math.floor(points / 2) : points;
 +}
-+
- /** Subtotal and discount for a cart against a catalog. */
- export function priceCart(cart, catalog, code) {
-   const base = subtotal(lines(cart), catalog);
-diff --git a/test/orders.test.js b/test/orders.test.js
-index cc3117d..c895914 100644
---- a/test/orders.test.js
-+++ b/test/orders.test.js
-@@ -26,6 +26,16 @@ test("an order prices the cart, taxes the net, and ships by weight", () => {
-   assert.equal(order.tax, 1950);
-   assert.deepEqual(order.shipping, { tier: "freight-express", cost: 5400 });
-   assert.equal(order.total, 26900 + 1950 + 5400);
-+  assert.equal(order.points, 159);
-+});
-+
-+test("a gold member keeps every point on a discounted express order", () => {
-+  const cart = addItem(emptyCart(), "MUG", 2);
-+  const { order } = placeOrder(
-+    { cart, catalog, stock: { MUG: 5 }, discountCode: "FLAT500", region: "OR", zone: "domestic", express: true, membership: "gold" },
-+    deps,
-+  );
-+  assert.equal(order.points, 20 * 3 + 50);
- });
- 
- test("an order that cannot be fully stocked is refused before anything is priced", () => {
 diff --git a/test/pricing.test.js b/test/pricing.test.js
-index c7af054..07688a2 100644
+index c7af054..3abad4d 100644
 --- a/test/pricing.test.js
 +++ b/test/pricing.test.js
 @@ -2,7 +2,7 @@ import { test } from "node:test";
@@ -96,31 +44,32 @@ index c7af054..07688a2 100644
  
  const catalog = createCatalog([
    { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
-@@ -31,6 +31,27 @@ test("an unknown code takes nothing off", () => {
-   assert.equal(discountFor(2800, "FREESHIP"), 0);
+@@ -34,3 +34,28 @@ test("an unknown code takes nothing off", () => {
+ test("pricing a cart reports subtotal, discount, and the net", () => {
+   assert.deepEqual(priceCart(cart, catalog, "FLAT500"), { subtotal: 2800, discount: 500, net: 2300 });
  });
- 
-+test("points are one per whole dollar of the net, rounded down", () => {
-+  assert.equal(loyaltyPoints(2399, {}), 23);
-+  assert.equal(loyaltyPoints(99, {}), 0);
++
++test("loyalty points are one per whole dollar of net, dropping the cents", () => {
++  assert.equal(loyaltyPoints(2399), 23);
++  assert.equal(loyaltyPoints(99), 0);
 +});
 +
-+test("silver earns double and gold triple", () => {
-+  assert.equal(loyaltyPoints(2300, { membership: "silver" }), 46);
-+  assert.equal(loyaltyPoints(2300, { membership: "gold" }), 69);
++test("silver members earn double and gold members triple", () => {
++  assert.equal(loyaltyPoints(2300, { member: "silver" }), 46);
++  assert.equal(loyaltyPoints(2300, { member: "gold" }), 69);
++  assert.equal(loyaltyPoints(2300, { member: "bronze" }), 23);
 +});
 +
 +test("express shipping adds a 50 point bonus", () => {
 +  assert.equal(loyaltyPoints(2300, { express: true }), 73);
 +});
 +
-+test("a discount code halves the points, rounded down, except for gold", () => {
-+  assert.equal(loyaltyPoints(2300, { discounted: true }), 11);
-+  assert.equal(loyaltyPoints(2300, { membership: "silver", discounted: true }), 23);
-+  assert.equal(loyaltyPoints(2300, { membership: "gold", discounted: true, express: true }), 119);
-+  assert.equal(loyaltyPoints(2300, { express: true, discounted: true }), 36);
++test("a discount code halves the points, rounding down, except for gold", () => {
++  assert.equal(loyaltyPoints(2500, { discounted: true }), 12);
++  assert.equal(loyaltyPoints(2300, { member: "silver", discounted: true }), 23);
++  assert.equal(loyaltyPoints(2300, { member: "gold", discounted: true }), 69);
 +});
 +
- test("pricing a cart reports subtotal, discount, and the net", () => {
-   assert.deepEqual(priceCart(cart, catalog, "FLAT500"), { subtotal: 2800, discount: 500, net: 2300 });
- });
++test("the discount halving applies to the express bonus too", () => {
++  assert.equal(loyaltyPoints(2300, { express: true, discounted: true }), 36);
++});

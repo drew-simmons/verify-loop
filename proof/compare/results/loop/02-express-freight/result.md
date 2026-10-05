@@ -1,8 +1,8 @@
-`shippingTier` now produces `freight-express-intl` for international parcels over 20 kg, and lighter parcels keep the `intl`-then-`express` order. `/verify` came back clean. That covers the tests, poly-crap (no changed function above CRAP 5) and the lawbook rules. The model-judged prose standards were skipped because `AWS_REGION` isn't set.
+`shippingTier` now returns `freight-express-intl` for an international express parcel over 20 kg. Lighter parcels keep the current order, such as `heavy-intl-express`. The verify loop is clean, with coverage at 100% and no function above CRAP 5. The model-judged prose standards were skipped because no Bedrock credentials are set.
 
-- **Order:** `src/shipping.js` has a new `SUFFIX_ORDER` table. Freight puts `express` before `intl`, and standard and heavy do the reverse. A lookup table replaces another branch, which keeps `shippingTier` within the complexity limit.
-- **Express on freight:** it already worked, since nothing in the code blocked it. A domestic freight express parcel gives `freight-express`.
-- **Pricing:** `shippingCost` needed no change, because it adds each surcharge separately and doesn't depend on suffix order. `freight-express-intl` costs 4500 + 900 + 1500.
-- **Tests:** in `test/shipping.test.js` I added cases for `freight-express-intl`, `freight-express`, a 20 kg international express parcel (which stays `heavy-intl-express`), and the cost of the new tier string.
+- **Order of suffixes:** I moved it into a lookup table in `src/shipping.js`. Freight puts `express` before `intl` and every other tier uses `intl` then `express`. A table keeps the function's complexity low, where a new `if` would have raised it.
+- **Express on freight:** The old code already accepted express on freight, so the existing `freight-express` order test in `test/orders.test.js` still holds.
+- **Pricing:** `shippingCost` didn't need a change. It adds up the suffix surcharges whatever order they come in, so `freight-express-intl` costs 6900 cents (4500 + 900 + 1500).
+- **Tests:** I added cases to `test/shipping.test.js` for `freight-express-intl`, `freight-express` and the 6900-cent cost.
 
 Nothing is committed.

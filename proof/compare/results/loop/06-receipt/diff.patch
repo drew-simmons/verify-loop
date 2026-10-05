@@ -1,5 +1,5 @@
 diff --git a/src/orders.js b/src/orders.js
-index b20288a..e8ad12f 100644
+index b20288a..40f549b 100644
 --- a/src/orders.js
 +++ b/src/orders.js
 @@ -1,6 +1,7 @@
@@ -10,33 +10,29 @@ index b20288a..e8ad12f 100644
  import { priceCart } from "./pricing.js";
  import { shippingCost, shippingTier } from "./shipping.js";
  import { taxFor } from "./tax.js";
-@@ -40,3 +41,24 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+@@ -40,3 +41,20 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
    };
    return { order, stock: remaining };
  }
 +
-+/** The discount line of a receipt, or no lines when the order has no discount. */
-+function discountLines(order, currency) {
-+  return order.discount > 0 ? [`Discount: -${formatCents(order.discount, currency)}`] : [];
++/** The labelled amounts below the line items; the discount row appears only when there is one. */
++function summaryRows(order) {
++  const rows = [["Subtotal", order.subtotal]];
++  if (order.discount > 0) {
++    rows.push(["Discount", order.discount]);
++  }
++  rows.push(["Tax", order.tax], [`Shipping (${order.shipping.tier})`, order.shipping.cost], ["Total", order.total]);
++  return rows;
 +}
 +
-+/**
-+ * A printable receipt for a placed order: one line per cart line, then subtotal,
-+ * discount (only when there is one), tax, shipping with its tier, and the total.
-+ * Amounts read like "USD 12.50".
-+ */
++/** A printable multi-line receipt for a placed order, with amounts formatted in `currency`. */
 +export function receipt(order, currency) {
-+  return [
-+    ...order.lines.map((line) => `${line.sku} x${line.quantity}`),
-+    `Subtotal: ${formatCents(order.subtotal, currency)}`,
-+    ...discountLines(order, currency),
-+    `Tax: ${formatCents(order.tax, currency)}`,
-+    `Shipping (${order.shipping.tier}): ${formatCents(order.shipping.cost, currency)}`,
-+    `Total: ${formatCents(order.total, currency)}`,
-+  ].join("\n");
++  const items = order.lines.map((line) => `${line.sku} x${line.quantity}`);
++  const totals = summaryRows(order).map(([label, amount]) => `${label}: ${formatCents(amount, currency)}`);
++  return [...items, ...totals].join("\n");
 +}
 diff --git a/test/orders.test.js b/test/orders.test.js
-index cc3117d..23a6e89 100644
+index cc3117d..34c2588 100644
 --- a/test/orders.test.js
 +++ b/test/orders.test.js
 @@ -3,7 +3,7 @@ import assert from "node:assert/strict";
@@ -44,15 +40,16 @@ index cc3117d..23a6e89 100644
  import { createCatalog } from "../src/catalog.js";
  import { InsufficientStockError } from "../src/errors.js";
 -import { placeOrder } from "../src/orders.js";
-+import { placeOrder, receipt } from "../src/orders.js";
++import { placeOrder, receipt }from "../src/orders.js";
  
  const catalog = createCatalog([
    { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
-@@ -28,6 +28,37 @@ test("an order prices the cart, taxes the net, and ships by weight", () => {
-   assert.equal(order.total, 26900 + 1950 + 5400);
+@@ -35,3 +35,32 @@ test("an order that cannot be fully stocked is refused before anything is priced
+     InsufficientStockError,
+   );
  });
- 
-+test("a receipt lists the lines, the discount, tax, shipping with its tier, and the total", () => {
++
++test("a receipt lists lines, the discount when present, tax, shipping with its tier, and the total", () => {
 +  const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
 +  const { order } = placeOrder(
 +    { cart, catalog, stock: { MUG: 5, DESK: 1 }, discountCode: "FLAT500", region: "CA", zone: "domestic", express: true },
@@ -64,7 +61,7 @@ index cc3117d..23a6e89 100644
 +      "MUG x2",
 +      "DESK x1",
 +      "Subtotal: USD 274.00",
-+      "Discount: -USD 5.00",
++      "Discount: USD 5.00",
 +      "Tax: USD 19.50",
 +      "Shipping (freight-express): USD 54.00",
 +      "Total: USD 342.50",
@@ -72,17 +69,11 @@ index cc3117d..23a6e89 100644
 +  );
 +});
 +
-+test("a receipt omits the discount line when the order has no discount", () => {
++test("a receipt omits the discount line when there is no discount", () => {
 +  const cart = addItem(emptyCart(), "MUG", 1);
 +  const { order } = placeOrder(
 +    { cart, catalog, stock: { MUG: 1 }, region: "OR", zone: "domestic", express: false },
 +    deps,
 +  );
-+  const text = receipt(order, "USD");
-+  assert.ok(!text.includes("Discount"));
-+  assert.ok(text.startsWith("MUG x1\nSubtotal: USD 12.50\nTax:"));
++  assert.doesNotMatch(receipt(order, "USD"), /Discount/);
 +});
-+
- test("an order that cannot be fully stocked is refused before anything is priced", () => {
-   const cart = addItem(emptyCart(), "DESK", 2);
-   assert.throws(

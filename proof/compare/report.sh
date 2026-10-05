@@ -4,7 +4,7 @@ set -u
 cd "$(dirname "$0")" || exit 2
 ROWS=$(find results -name row.json | sort)
 [ -n "$ROWS" ] || { echo "report: no rows under results/" >&2; exit 1; }
-jq -s '.' $ROWS >results/rows.json
+jq -s 'sort_by(.arm, .task)' $ROWS >results/rows.json
 
 {
   echo "# Results: the loop against prompting and long steering files"
@@ -12,30 +12,40 @@ jq -s '.' $ROWS >results/rows.json
   echo "Same six tasks, same model ($(jq -r '.[0].model' results/rows.json)), same gate. One run per cell."
   echo "Gate: 0 passed, 1 a gate failed, 2 the gate could not run (for example, tests that no longer start)."
   echo
-  echo "| Arm | Task | Gate | Findings | Caught by | Tests | Turns | Time | Cost | Steering |"
-  echo "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
-  jq -r '.[] | "| \(.arm) | \(.task) | \(.gate) | \(.findings) | \((.crap + (if .crap != "" and .rules != "" then "; " else "" end) + .rules) | if . == "" then "-" else . end) | \(.tests_pass) pass, \(.tests_fail) fail | \(.turns // "?") | \((.duration_ms / 1000 * 10 | round) / 10)s | $\((.cost_usd // 0) * 100 | round / 100) | \(.steering_bytes / 1024 * 10 | round / 10) KB |"' results/rows.json
+  echo "| Arm | Task | Gate | Caught by | Tests added | Max CC | Min coverage | Lines | Turns | Time | Cost | Hook fired |"
+  echo "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
+  jq -r '.[] | "| \(.arm) | \(.task) | \(.gate) | \((.crap + (if .crap != "" and .rules != "" then "; " else "" end) + .rules) | if . == "" then "-" else . end) | \(.tests_changed) | \(if .changed_fns == 0 then "-" else .max_cc end) | \(if .changed_fns == 0 then "-" else "\(.min_cov)%" end) | +\(.lines_added) | \(.turns // "?") | \((.duration_ms / 1000) | round)s | $\((.cost_usd // 0) * 100 | round / 100) | \(if .arm == "C" then (if .hook_ran then "yes" else "no" end) else "n/a" end) |"' results/rows.json
   echo
   echo "## Per arm"
   echo
-  echo "| Arm | Tasks passing the gate | Findings | Mean turns | Mean time | Total cost | Steering per turn | Steering carried in all |"
-  echo "| --- | --- | --- | --- | --- | --- | --- | --- |"
+  echo "| Arm | Gate passed | Findings | Tests added | Mean turns | Mean time | Total cost | Steering per turn | Steering carried over the run |"
+  echo "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
   jq -r 'group_by(.arm)[] | {arm: .[0].arm, n: length,
       pass: ([.[] | select(.gate == 0)] | length),
       findings: ([.[].findings] | add),
+      tests: ([.[].tests_changed] | add),
       turns: (([.[].turns // 0] | add) / length),
       secs: (([.[].duration_ms] | add) / length / 1000),
       cost: ([.[].cost_usd // 0] | add),
       steer: .[0].steering_bytes,
       carried: ([.[] | .steering_bytes * (.turns // 0)] | add)}
-    | "| \(.arm) | \(.pass) of \(.n) | \(.findings) | \(.turns * 10 | round / 10) | \(.secs | round)s | $\(.cost * 100 | round / 100) | \(.steer / 1024 * 10 | round / 10) KB | \(.carried / 1024 / 1024 * 10 | round / 10) MB |"' results/rows.json
+    | "| \(.arm) | \(.pass) of \(.n) | \(.findings) | \(.tests) | \(.turns * 10 | round / 10) | \(.secs | round)s | $\(.cost * 100 | round / 100) | \(.steer / 1024 * 10 | round / 10) KB | \(.carried / 1024 | round) KB |"' results/rows.json
   echo
   cat <<'MD'
 Arms: **A** prompt only (a ten-line CLAUDE.md with the commands), **B** a long
 steering file (every rule as prose, no gate), **C** the loop (a short CLAUDE.md,
 the `/verify` skill, the Stop hook, the rules on disk). "Steering" is the size
-of what the model reads as instructions on every turn; "carried in all" is that
-size times the turns the arm took, the text the arm paid for.
+of what the model reads as instructions on every turn; "carried over the run" is
+that size times the turns the arm took, the text the arm paid for. "Max CC" and
+"Min coverage" are over the functions the agent changed, as poly-crap scored
+them; "-" means the change touched no function body. "Hook fired" says whether
+the loop's Stop hook ran during the agent's session.
+
+The gate scores only what a regex or a coverage report can see. The six prose
+standards (names, one thing per function, guard clauses, errors, injected
+dependencies, behaviour-named tests) are not part of the score here, so the
+table understates the difference a model judge would show; see
+`proof/prove-llm.sh` for that stage.
 
 ## What the numbers cannot show
 

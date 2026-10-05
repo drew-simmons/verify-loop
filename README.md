@@ -214,6 +214,87 @@ The build environment for this repository had no Bedrock access, so the
 Bedrock run of this proof has not been recorded here yet. Everything up to the
 HTTP call is exercised by the stub run above.
 
+## Proof: against prompting alone and against a long steering file
+
+The claim that matters for adoption is not that the loop catches mistakes. It
+is that an enforced loop produces cleaner code than the two things teams do
+today: prompt Claude Code and hope, or write a long CLAUDE.md. So
+`proof/compare/compare.sh` gives the same six feature requests to Claude Code
+headlessly under three setups and scores every result with the same gate.
+
+| Arm | What the agent gets |
+| --- | --- |
+| **A** prompt only | `src/`, `test/`, a 15-line README, a 10-line CLAUDE.md with the commands. No rules anywhere. |
+| **B** long steering file | the same, plus a 242-line CLAUDE.md: every rule in this repository as prose, lawbook's clean-code standards as instructions, the CRAP ceiling, "run coverage before you finish". No gate. |
+| **C** the loop | this repository as committed: the 57-line CLAUDE.md, the `/verify` skill, the Stop hook, the rules on disk. |
+
+The tasks are the requests a product owner would write, and none mentions
+tests, complexity, or rules: refunds by reason, express on freight, a
+diagnostic record when stock runs out, tax rates moved to a JSON file, loyalty
+points with tier multipliers, a printable receipt. Each invites one of the
+mistakes the loop exists to catch. Same model in every arm (Sonnet 5.5), one
+run per cell, scored by the deterministic gate only, so no result rests on a
+model's opinion. The full table with per-task rows is in
+`proof/compare/results.md`; the raw diffs, transcripts, and verify logs are
+under `proof/compare/results/`.
+
+| Arm | Gate passed | Findings | Tests added | Mean turns | Mean time | Total cost | Steering per turn | Steering carried over the run |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A | 4 of 6 | 2 | 5 | 11.3 | 30s | $0.87 | 0.2 KB | 15 KB |
+| B | 5 of 6 | 1 | 6 | 10.7 | 31s | $0.94 | 11.4 KB | 728 KB |
+| C | 6 of 6 | 0 | 7 | 11.2 | 33s | $0.97 | 5.8 KB | 390 KB |
+
+What the rows say:
+
+- **Prompting alone let two of six changes through red.** The diagnostic task
+  got a `console.warn` in the library; the tax task got `node:fs` in the
+  library. Both agents wrote tests and kept complexity low. The mistakes were
+  design mistakes, the kind nobody notices in review until the library is
+  running somewhere it cannot print or read a file.
+- **The long steering file let one through, and it was the rule it had just
+  read.** Arm B's CLAUDE.md says "never import `node:fs`" and "the library is
+  pure". The agent obeyed the letter and reached for a static JSON import of a
+  file at the repo root, then explained that it had avoided `node:fs` because
+  the rules keep `src/` pure. Prose was followed and the intent was lost. The
+  gate caught it, because a rule on disk can be made precise after the fact
+  (that import is now in the regex), and a sentence in a CLAUDE.md cannot.
+- **The loop let nothing through, and the Stop hook fired in every cell.** On
+  the tax task the agent read the rule on disk, named it in its summary, and
+  delivered the design the rule asks for: the rates table as a parameter,
+  the file loader outside `src/`, and `placeOrder` taking the rates through
+  `deps`. That cost 16 turns against B's 10 and A's 9. The extra turns are
+  the price of the design being right; it is also the only cell where the
+  arms differ in time by more than a few seconds.
+- **The cost is the same.** Six tasks cost $0.87, $0.94, and $0.97. Enforcement
+  is not more expensive than hoping; it moves a few turns from the human's
+  review to the agent's session.
+- **The steering file is paid for on every turn.** Arm B carried 11.4 KB of
+  instructions into each of 64 turns, 728 KB in all, for the one rule it then
+  misread. Arm C carries a 3 KB CLAUDE.md and a 2.7 KB skill description; the
+  183-line `lawbook.yaml` costs nothing until the gate runs it.
+
+What the rows cannot say, and the honest caveats:
+
+- One run per cell. A model's compliance with prose is not deterministic, so
+  arm B's 5 of 6 is one draw. The loop's 6 of 6 is not a draw: the hook does
+  not let a red change end a turn. That asymmetry is the argument, and it
+  holds whatever the model does on a given day.
+- Sonnet 5.5 follows prose well. Arm A's agents wrote tests and small
+  functions without being told. The gap between prompting and the loop is in
+  design rules, not in diligence, and it would be wider with a smaller model
+  or a larger codebase where a 242-line CLAUDE.md competes with more context.
+- The gate scores what a regex and a coverage report can see. The six prose
+  standards are not in the score, so the table understates what a model judge
+  would add; `proof/prove-llm.sh` covers that stage.
+- Rules on disk have properties the table has no column for: they are
+  versioned, tested by `proof/prove.sh` and `lawbook test`, diff-scoped,
+  apply to humans and CI, and a drift shows up as a failing scenario. A
+  sentence in a CLAUDE.md has none of these.
+
+Reproduce it with `sh proof/compare/compare.sh` (about five minutes per arm,
+three arms in parallel) and `sh proof/compare/report.sh`. One cell:
+`sh proof/compare/compare.sh C --tasks 04`.
+
 ## How the loop works
 
 Every stage scopes to the merge base of `origin/main` and `HEAD`, compared
@@ -263,7 +344,7 @@ a human in a terminal                      ──►  hunk diff --watch; comment
 | `lawbook.yaml` | The definition of clean, above, with pass and fail fixtures for each prose standard. |
 | `lawbook.stub.yaml`, `proof/stub-judge.mjs` | The same rules judged by a local stub, for smoke-testing the model stage with no credentials. |
 | `.poly-crap.toml` | Keeps `proof/` out of poly-crap's scoring. |
-| `proof/` | `prove.sh`, `bench.sh`, `scale.sh`, `prove-llm.sh`, the eighteen scenarios, and the fixtures. |
+| `proof/` | `prove.sh`, `bench.sh`, `scale.sh`, `prove-llm.sh`, the eighteen scenarios, the fixtures, and `compare/` (the three-arm experiment, its tasks, arms, runner, scorer, and results). |
 | `demo.sh` | The 60-second story: red, green, cached. |
 
 Findings become Hunk comments through one jq filter. A poly-crap entry over
@@ -284,7 +365,8 @@ loop has a hole.
 ## Status
 
 Verified end to end in a Linux container: `prove.sh`, `bench.sh`,
-`scale.sh`, `demo.sh`, and `prove-llm.sh --stub` as shown above; the Stop
+`scale.sh`, `demo.sh`, `prove-llm.sh --stub`, and the 18-cell comparison as
+shown above; the Stop
 hook's block output on a red tree and silence on a clean one; the SessionStart
 hook's idempotent second run; and both Hunk paths against a real `hunk diff`
 session under a pseudo-terminal, where `comment clear` plus `comment apply`

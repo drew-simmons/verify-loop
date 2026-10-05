@@ -1,10 +1,46 @@
+diff --git a/load-tax-rates.js b/load-tax-rates.js
+new file mode 100644
+index 0000000..537e9d8
+--- /dev/null
++++ b/load-tax-rates.js
+@@ -0,0 +1,9 @@
++import { readFileSync } from "node:fs";
++
++/**
++ * Reads the sales tax rates by region from tax-rates.json at the repo root.
++ * The library is pure, so the caller loads this and passes it to placeOrder as `deps.taxRates`.
++ */
++export function loadTaxRates(path = new URL("./tax-rates.json", import.meta.url)) {
++  return JSON.parse(readFileSync(path, "utf8"));
++}
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..b785f28 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -20,14 +20,15 @@ function reserveAll(stock, cart) {
+ 
+ /**
+  * Places an order: reserves stock, prices the cart, adds tax and shipping.
+- * `deps` supplies `now()` and `nextId()` so callers, and tests, control time and ids.
++ * `deps` supplies `now()`, `nextId()`, and `taxRates` (region to rate) so callers, and tests,
++ * control time, ids, and rates.
+  * Returns { order, stock } where stock is the inventory after the reservation.
+  */
+ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, express }, deps) {
+   const remaining = reserveAll(stock, cart);
+   const price = priceCart(cart, catalog, discountCode);
+   const tier = shippingTier(cartWeight(cart, catalog), zone, express);
+-  const tax = taxFor(price.net, region);
++  const tax = taxFor(price.net, region, deps.taxRates);
+   const shipping = shippingCost(tier);
+   const order = {
+     id: deps.nextId(),
 diff --git a/src/tax.js b/src/tax.js
-index 5224a4b..c32bb3b 100644
+index 5224a4b..f7cba06 100644
 --- a/src/tax.js
 +++ b/src/tax.js
-@@ -1,11 +1,8 @@
+@@ -1,18 +1,11 @@
  import { percentOf } from "./money.js";
-+import RATES from "../tax-rates.json" with { type: "json" };
  
 -/** Sales tax rate by region. Regions not listed are untaxed. */
 -const RATES = {
@@ -12,11 +48,21 @@ index 5224a4b..c32bb3b 100644
 -  NY: 0.04,
 -  TX: 0.0625,
 -};
-+// RATES maps region to sales tax rate and lives in tax-rates.json at the repo
-+// root so finance can edit it. Regions not listed are untaxed.
+-
+-/** The tax rate for a region, zero when the region is untaxed. */
+-export function taxRate(region) {
+-  return RATES[region] ?? 0;
++/** The tax rate for a region from a rates table, zero when the region is untaxed. */
++export function taxRate(rates, region) {
++  return rates[region] ?? 0;
+ }
  
- /** The tax rate for a region, zero when the region is untaxed. */
- export function taxRate(region) {
+ /** Tax on an amount for a region, rounded to the cent. */
+-export function taxFor(amount, region) {
+-  return percentOf(amount, taxRate(region));
++export function taxFor(amount, region, rates) {
++  return percentOf(amount, taxRate(rates, region));
+ }
 diff --git a/tax-rates.json b/tax-rates.json
 new file mode 100644
 index 0000000..bc4c3c4
@@ -28,3 +74,60 @@ index 0000000..bc4c3c4
 +  "NY": 0.04,
 +  "TX": 0.0625
 +}
+diff --git a/test/orders.test.js b/test/orders.test.js
+index cc3117d..9fcef24 100644
+--- a/test/orders.test.js
++++ b/test/orders.test.js
+@@ -9,7 +9,11 @@ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+   { sku: "DESK", name: "Desk", priceCents: 24900, weightKg: 28 },
+ ]);
+-const deps = { now: () => "2026-10-05T00:00:00Z", nextId: () => "ORD-1" };
++const deps = {
++  now: () => "2026-10-05T00:00:00Z",
++  nextId: () => "ORD-1",
++  taxRates: { CA: 0.0725 },
++};
+ 
+ test("an order prices the cart, taxes the net, and ships by weight", () => {
+   const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
+diff --git a/test/tax.test.js b/test/tax.test.js
+index 6065f57..77b564a 100644
+--- a/test/tax.test.js
++++ b/test/tax.test.js
+@@ -1,18 +1,29 @@
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { taxFor, taxRate } from "../src/tax.js";
++import { loadTaxRates } from "../load-tax-rates.js";
++
++const rates = { CA: 0.0725, NY: 0.04, TX: 0.0625 };
+ 
+ test("listed regions have their own rate", () => {
+-  assert.equal(taxRate("CA"), 0.0725);
+-  assert.equal(taxRate("NY"), 0.04);
++  assert.equal(taxRate(rates, "CA"), 0.0725);
++  assert.equal(taxRate(rates, "NY"), 0.04);
+ });
+ 
+ test("unlisted regions are untaxed", () => {
+-  assert.equal(taxRate("OR"), 0);
+-  assert.equal(taxFor(10000, "OR"), 0);
++  assert.equal(taxRate(rates, "OR"), 0);
++  assert.equal(taxFor(10000, "OR", rates), 0);
+ });
+ 
+ test("tax rounds to the nearest cent", () => {
+-  assert.equal(taxFor(2300, "CA"), 167);
+-  assert.equal(taxFor(2300, "TX"), 144);
++  assert.equal(taxFor(2300, "CA", rates), 167);
++  assert.equal(taxFor(2300, "TX", rates), 144);
++});
++
++test("tax-rates.json holds a rate between 0 and 1 for every region", () => {
++  const loaded = loadTaxRates();
++  assert.deepEqual(Object.keys(loaded).sort(), ["CA", "NY", "TX"]);
++  for (const rate of Object.values(loaded)) {
++    assert.ok(typeof rate === "number" && rate >= 0 && rate < 1);
++  }
+ });

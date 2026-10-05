@@ -1,19 +1,29 @@
 diff --git a/src/shipping.js b/src/shipping.js
-index 57200e4..1b8a000 100644
+index 57200e4..5a445c2 100644
 --- a/src/shipping.js
 +++ b/src/shipping.js
-@@ -24,19 +24,21 @@ export function weightTier(weightKg) {
+@@ -13,6 +13,12 @@ const SURCHARGES = {
+   express: 900,
+ };
+ 
++/** The order suffixes appear in a tier string, unless the base tier overrides it. */
++const DEFAULT_SUFFIX_ORDER = ["intl", "express"];
++const SUFFIX_ORDER = {
++  freight: ["express", "intl"],
++};
++
+ /** standard up to 5 kg, heavy up to 20 kg, freight above that. */
+ export function weightTier(weightKg) {
+   if (weightKg > 20) {
+@@ -24,19 +30,18 @@ export function weightTier(weightKg) {
    return "standard";
  }
  
-+/** Suffix order by tier: freight puts "express" before "intl", the rest the reverse. */
-+const SUFFIX_ORDER = {
-+  freight: ["express", "intl"],
-+  heavy: ["intl", "express"],
-+  standard: ["intl", "express"],
-+};
-+
- /** The weight tier plus "intl" and "express" suffixes, joined with dashes. */
+-/** The weight tier plus "intl" and "express" suffixes, joined with dashes. */
++/**
++ * The weight tier plus "intl" and "express" suffixes, joined with dashes.
++ * Freight puts "express" before "intl"; lighter tiers put "intl" first.
++ */
  export function shippingTier(weightKg, zone, express) {
    if (!(weightKg > 0)) {
      throw new ValidationError("weightKg", "greater than zero");
@@ -28,26 +38,22 @@ index 57200e4..1b8a000 100644
 -  return parts.join("-");
 +  const base = weightTier(weightKg);
 +  const wanted = { intl: zone === "international", express: Boolean(express) };
-+  return [base, ...SUFFIX_ORDER[base].filter((suffix) => wanted[suffix])].join("-");
++  const order = SUFFIX_ORDER[base] ?? DEFAULT_SUFFIX_ORDER;
++  return [base, ...order.filter((suffix) => wanted[suffix])].join("-");
  }
  
  /** The cost in cents of a tier string such as "heavy-intl-express". */
 diff --git a/test/shipping.test.js b/test/shipping.test.js
-index dfccb70..d048e96 100644
+index dfccb70..926138f 100644
 --- a/test/shipping.test.js
 +++ b/test/shipping.test.js
-@@ -22,7 +22,14 @@ test("international and express add suffixes in that order", () => {
+@@ -20,6 +20,9 @@ test("domestic parcels carry only their weight tier", () => {
+ test("international and express add suffixes in that order", () => {
+   assert.equal(shippingTier(6, "international", true), "heavy-intl-express");
    assert.equal(shippingTier(25, "international", false), "freight-intl");
- });
- 
-+test("freight parcels put express before intl", () => {
 +  assert.equal(shippingTier(25, "international", true), "freight-express-intl");
 +  assert.equal(shippingTier(25, "domestic", true), "freight-express");
-+  assert.equal(shippingTier(20, "international", true), "heavy-intl-express");
-+});
-+
- test("shipping cost is the tier's flat cost plus each surcharge", () => {
 +  assert.equal(shippingCost("freight-express-intl"), 4500 + 900 + 1500);
-   assert.equal(shippingCost("standard"), 500);
-   assert.equal(shippingCost("heavy-intl-express"), 1200 + 1500 + 900);
  });
+ 
+ test("shipping cost is the tier's flat cost plus each surcharge", () => {

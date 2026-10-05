@@ -37,8 +37,14 @@
       "kind": "forbid",
       "level": "error",
       "description": "The library is pure; the caller owns time, files, and the network",
-      "status": "pass",
-      "findings": []
+      "status": "fail",
+      "findings": [
+        {
+          "path": "src/tax.js",
+          "line": 2,
+          "message": "take the value as a parameter; the caller reads files and the clock (see placeOrder's deps)"
+        }
+      ]
     },
     {
       "id": "no-empty-catch",
@@ -154,8 +160,8 @@
     }
   ],
   "summary": {
-    "passed": 13,
-    "failed": 0,
+    "passed": 12,
+    "failed": 1,
     "warned": 0,
     "errored": 0,
     "skipped": 6,

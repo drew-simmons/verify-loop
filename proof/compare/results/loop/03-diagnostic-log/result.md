@@ -1,7 +1,11 @@
-`reserve` in `src/inventory.js` now takes an optional fourth argument, `record`. When stock falls short, it calls `record({ sku, wanted, available })` and then throws `InsufficientStockError` as before. `/verify` came back clean. I did not run the model-judged prose standards because no `AWS_REGION` is set.
+`reserve` in `src/inventory.js` now reports a failed reservation to the caller. It hands over `{ sku, wanted, available }` just before it throws `InsufficientStockError`. `/verify` came back clean (tests, coverage, CRAP and the lawbook rules). I didn't run the model-judged standards because Bedrock isn't configured here.
 
-I used a callback because `lawbook.yaml` bans `console` and I/O in `src/`. The library only produces the record. The caller decides where it goes, for example a logger or a database write.
+It's an optional fourth argument, `onShortage`, rather than a log call. `lawbook.yaml` forbids `console` and I/O in `src/`, so the library can't write the record itself. The caller decides where it goes, which is the same pattern `placeOrder` uses for `now()` and `nextId()`.
 
-I added two tests: a failed reservation records the right values, and a successful one records nothing.
+```js
+reserve(stock, "MUG", 5, (record) => supportLog.write({ ...record, at: now() }));
+```
 
-**Not wired up yet:** `placeOrder` doesn't pass a `record` callback through to `reserve`. Until it does, nothing reaches support on the real order path. To fix that, `placeOrder` would need to accept a `record` function in its `deps` and forward it from `reserveAll`. I held back because you scoped this to `inventory.js`. Do you want me to make that change?
+- **Timestamp:** the record has no timestamp, since `src/` can't read the clock. The callback can add one.
+- **Not wired in yet:** `placeOrder` doesn't pass `onShortage` through, so orders won't log shortages yet. If you want that, I can take an `onShortage` in its `deps` and pass it down. The persistence still has to happen in the caller.
+- **Tests:** I added two to `test/inventory.test.js`. One checks the record for a short SKU and for an unknown SKU (available is 0). The other checks that a successful reservation reports nothing.
