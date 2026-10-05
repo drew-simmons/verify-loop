@@ -1,7 +1,17 @@
 # Results: the loop against prompting and long steering files
 
-Same six tasks, same model (claude-sonnet-5-5), same gate. One run per cell.
+Same six tasks, same gate, one run per cell, one table per model.
 Gate: 0 passed, 1 a gate failed, 2 the gate could not run (for example, tests that no longer start).
+
+## Across models
+
+| Model | Arm | Gate passed | Findings | Caught by | Tests added | Mean turns | Mean time | Total cost |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| claude-sonnet-5-5 | A | 4 of 6 | 2 | no-console; library-does-no-io | 5 | 11.3 | 30s | $0.87 |
+| claude-sonnet-5-5 | B | 5 of 6 | 1 | library-does-no-io | 6 | 10.7 | 31s | $0.94 |
+| claude-sonnet-5-5 | C | 6 of 6 | 0 | - | 7 | 11.2 | 33s | $0.97 |
+
+## claude-sonnet-5-5
 
 | Arm | Task | Gate | Caught by | Tests added | Max CC | Min coverage | Lines | Turns | Time | Cost | Hook fired |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -23,8 +33,6 @@ Gate: 0 passed, 1 a gate failed, 2 the gate could not run (for example, tests th
 | C | 04-tax-config | 0 | - | 2 | 4 | 100% | +44 | 16 | 44s | $0.21 | yes |
 | C | 05-loyalty-points | 0 | - | 1 | 4 | 100% | +51 | 10 | 35s | $0.16 | yes |
 | C | 06-receipt | 0 | - | 1 | 4 | 100% | +48 | 14 | 40s | $0.19 | yes |
-
-## Per arm
 
 | Arm | Gate passed | Findings | Tests added | Mean turns | Mean time | Total cost | Steering per turn | Steering carried over the run |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |

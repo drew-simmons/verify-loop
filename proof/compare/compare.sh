@@ -7,7 +7,8 @@
 #   sh proof/compare/compare.sh A --max-turns 10
 #
 # Arms: A prompt-only, B long-steering, C loop. Results land in
-# proof/compare/results/<arm name>/<task>/; proof/compare/report.sh makes the table.
+# proof/compare/results/<model>/<arm name>/<task>/; proof/compare/report.sh makes the tables.
+#   sh proof/compare/compare.sh --model claude-haiku-4-5   # the same matrix on another model
 set -u
 
 cd "$(dirname "$0")/../.." || exit 2
@@ -78,7 +79,7 @@ run() {
   arm=$1; task=$2
   name=$(basename "$task" .md)
   dir="$WORK/$arm-$name"
-  out="$SRC/$HERE/results/$(arm_name "$arm")/$name"
+  out="$SRC/$HERE/results/${MODEL#claude-}/$(arm_name "$arm")/$name"
   mkdir -p "$out"
   prepare "$arm" "$dir"
   printf '%s %s: ' "$arm" "$name" >&2

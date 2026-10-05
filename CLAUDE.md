@@ -19,7 +19,7 @@ sh proof/bench.sh                          # stage-by-stage timings
 sh proof/scale.sh 10 50 200                # timings as the codebase grows
 sh proof/prove-llm.sh --stub               # the model stage end to end, no credentials
 AWS_REGION=us-east-1 sh proof/prove-llm.sh # the same with Sonnet 5.5 on Bedrock
-sh proof/compare/compare.sh [A|B|C] [--tasks 01,05]   # headless Claude Code under three setups, scored by the gate
+sh proof/compare/compare.sh [A|B|C] [--tasks 01,05] [--model claude-haiku-4-5]   # headless Claude Code under three setups, scored by the gate
 sh proof/compare/report.sh                 # the comparison table from the results
 lawbook check . --no-llm                   # the clean-code rules alone
 lawbook test .                             # the prose standards against their fixtures
