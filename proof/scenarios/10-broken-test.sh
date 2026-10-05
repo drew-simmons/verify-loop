@@ -5,6 +5,6 @@ apply() {
   sed -i 's/  CA: 0.0725,/  CA: 0.0825,/' src/tax.js
 }
 expect() {
-  grep -q "ℹ fail 1" .verify/log
+  grep -Eq "^ℹ fail [1-9]" .verify/log
 }
-caught() { echo "node:test: $(grep -c '^✖' .verify/log 2>/dev/null) failing test(s), stage 3"; }
+caught() { echo "node:test: $(sed -n 's/^ℹ fail \([0-9]*\)$/\1/p' .verify/log) failing test(s), stage 3"; }

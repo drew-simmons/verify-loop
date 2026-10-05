@@ -39,7 +39,9 @@ if [ "$STAMP" = "$(cat "$OUT/green" 2>/dev/null)" ]; then
   echo "verify: unchanged since the last green run ($STAMP)"
   exit 0
 fi
-rm -f "$OUT/green" "$OUT/crap.json" "$OUT/lawbook.json" "$OUT/comments.json" "$OUT/notes.json"
+# The green stamp stays: it records the last change that passed, and reverting
+# to that change should be instant even after a red run in between.
+rm -f "$OUT/crap.json" "$OUT/lawbook.json" "$OUT/comments.json" "$OUT/notes.json"
 
 # The worst stage decides: 0 stays, 2 means broken, anything else is a failed gate.
 status=0

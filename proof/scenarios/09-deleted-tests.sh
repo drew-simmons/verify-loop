@@ -1,8 +1,8 @@
 title="deleted tests"
-developer_did="deletes test/shipping.test.js and touches no source file"
+developer_did="deletes the two test files that exercise shipping and touches no source file"
 expect_exit=1
 apply() {
-  rm test/shipping.test.js
+  rm test/shipping.test.js test/orders.test.js
 }
 expect() {
   grep -q "full scan: test files changed" .verify/log \

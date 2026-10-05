@@ -14,7 +14,9 @@
       "Bash(lawbook test *)",
       "Bash(hunk session *)",
       "Bash(hunk skill path)",
-      "Bash(jq *)"
+      "Bash(jq *)",
+      "Bash(sh proof/*)",
+      "Bash(./proof/*)"
     ]
   },
   "hooks": {

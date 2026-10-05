@@ -1,5 +1,5 @@
 title="complexity creep with passing tests"
-developer_did="rewrites shippingTier as one function with seven paths, all of them tested"
+developer_did="rewrites shippingTier as one seven-path function and tests every path"
 expect_exit=1
 apply() {
   python3 - <<'PY'
@@ -19,10 +19,10 @@ export function shippingTier(weightKg, zone, express) {
   } else if (weightKg > 5) {
     tier = "heavy";
   }
-  if (zone === "international") {
+  if (zone === "international" || zone === "intl") {
     tier = `${tier}-intl`;
   }
-  if (express && weightKg <= 20) {
+  if (express) {
     tier = `${tier}-express`;
   }
   return tier;
@@ -38,9 +38,8 @@ open(p, "w").write(s)
 PY
   cat >>test/shipping.test.js <<'JS'
 
-test("express is not offered on freight", () => {
-  assert.equal(shippingTier(25, "domestic", true), "freight");
-  assert.equal(shippingTier(25, "international", true), "freight-intl");
+test("the short zone name also marks a parcel international", () => {
+  assert.equal(shippingTier(25, "intl", true), "freight-intl-express");
 });
 JS
 }

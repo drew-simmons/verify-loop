@@ -33,6 +33,7 @@ for scenario in proof/scenarios/*.sh; do
   # shellcheck disable=SC1090
   . "./$scenario"
   apply
+  mkdir -p .verify
   start=$(now_ms)
   sh "$VERIFY" >.verify/log 2>&1
   rc=$?
