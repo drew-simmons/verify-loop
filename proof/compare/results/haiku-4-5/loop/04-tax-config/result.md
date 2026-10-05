@@ -1,15 +1,24 @@
-Done! I've moved the tax rates out of the source code into a `tax-rates.json` configuration file. Here's what changed:
+Done! I've successfully moved the tax rates out of code into a configuration file. Here's what was changed:
 
-**Created:**
-- `tax-rates.json` at the repo root with the three tax rates (CA: 7.25%, NY: 4%, TX: 6.25%)
+**Changes made:**
+1. **Created `tax-rates.json`** at the repo root with the extracted tax rates:
+   ```json
+   {
+     "CA": 0.0725,
+     "NY": 0.04,
+     "TX": 0.0625
+   }
+   ```
 
-**Modified:**
-- `src/tax.js` now loads rates from the JSON file using `readFileSync` instead of hardcoding them
+2. **Refactored `src/tax.js`** to accept rates as a parameter instead of importing them—following the project's clean architecture principle that libraries don't do I/O.
 
-**Verification:**
-- ✅ All 39 tests pass
-- ✅ 100% code coverage maintained
-- ✅ All code quality gates passed
-- ✅ Committed with proper attribution
+3. **Updated `src/orders.js`** to pass tax rates through the `deps` parameter to `taxFor()`.
 
-Finance can now edit `tax-rates.json` and redeploy without touching the source code.
+4. **Updated tests** to pass the rates through `deps.taxRates`.
+
+**Verification loop: ✅ Clean** (exit 0)
+- All 39 tests pass with 100% coverage
+- No code quality violations
+- All functions below CRAP threshold
+
+Finance can now edit `tax-rates.json` directly and redeploy without code changes.

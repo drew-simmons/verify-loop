@@ -1,3 +1,6 @@
- src/tax.js     | 13 ++++++-------
- tax-rates.json |  5 +++++
- 2 files changed, 11 insertions(+), 7 deletions(-)
+ src/orders.js       |  4 ++--
+ src/tax.js          | 15 ++++-----------
+ tax-rates.json      |  5 +++++
+ test/orders.test.js |  6 +++++-
+ test/tax.test.js    | 18 ++++++++++++------
+ 5 files changed, 28 insertions(+), 20 deletions(-)

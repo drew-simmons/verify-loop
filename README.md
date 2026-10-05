@@ -238,13 +238,23 @@ model's opinion. The full table with per-task rows is in
 `proof/compare/results.md`; the raw diffs, transcripts, and verify logs are
 under `proof/compare/results/`.
 
+**Sonnet 5.5**
+
 | Arm | Gate passed | Findings | Tests added | Mean turns | Mean time | Total cost | Steering per turn | Steering carried over the run |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | A | 4 of 6 | 2 | 5 | 11.3 | 30s | $0.87 | 0.2 KB | 15 KB |
 | B | 5 of 6 | 1 | 6 | 10.7 | 31s | $0.94 | 11.4 KB | 728 KB |
 | C | 6 of 6 | 0 | 7 | 11.2 | 33s | $0.97 | 5.8 KB | 390 KB |
 
-What the rows say:
+**Haiku 4.5**, the same tasks, arms, and gate
+
+| Arm | Gate passed | Findings | Tests added | Mean turns | Mean time | Total cost | Steering per turn | Steering carried over the run |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A | 0 of 6 | 8 | 1 | 12.0 | 38s | $0.57 | 0.2 KB | 15 KB |
+| B | 5 of 6 | 1 | 5 | 13.8 | 62s | $0.66 | 11.4 KB | 944 KB |
+| C | 6 of 6 | 0 | 8 | 25.3 | 102s | $1.26 | 5.9 KB | 890 KB |
+
+What the rows say, Sonnet first:
 
 - **Prompting alone let two of six changes through red.** The diagnostic task
   got a `console.warn` in the library; the tax task got `node:fs` in the
@@ -273,16 +283,52 @@ What the rows say:
   misread. Arm C carries a 3 KB CLAUDE.md and a 2.7 KB skill description; the
   183-line `lawbook.yaml` costs nothing until the gate runs it.
 
+What changed with the smaller model:
+
+- **Without steering, Haiku failed every task.** Eight findings in six
+  cells: a refund function with four branches and 8% coverage (CRAP 16), a
+  receipt at 7% coverage, `shippingTier` rewritten at complexity 7, loyalty
+  points at complexity 6, the clock read inside the library, and `fs` read
+  inside the library. One test file touched in six tasks. The agent's
+  summaries say "all tests pass" each time, and they do; the tests it did not
+  write are the problem.
+- **The long steering file held up on the gate, and failed the same rule in
+  the same way.** Five of six, as with Sonnet, and the one failure is again
+  the tax task: a static JSON import, explained as keeping the library pure
+  because "the JSON is loaded at module initialization, not via runtime file
+  I/O". Two models, two runs, the same misreading of the same sentence. Prose
+  was followed to the letter both times.
+- **The loop passed all six, and this time it had to work for it.** Mean
+  turns went from 11 to 25 and cost from $0.97 to $1.26, against $0.66 for
+  the steering file. The hook fired in every cell; on the shipping task the
+  agent needed 41 turns to get a seven-way function under the complexity
+  ceiling with every path covered. That is the price of enforcement on a
+  model that does not get it right the first time, and it is paid inside the
+  agent's session rather than in review.
+- **The loop is only as good as its rules, and the experiment found a hole.**
+  Haiku's loop agent first satisfied the tax task with `import { readFileSync }
+  from "fs"`, no `node:` prefix, and the regex only knew the prefixed form.
+  The gate passed it. The rule is one line, so it now matches both spellings,
+  every cell was rescored, and the cell was rerun: with the corrected rule the
+  agent delivered the injected design, rates through `deps`, in 24 turns. A
+  CLAUDE.md cannot be fixed that way, because there is nothing to fix; the
+  sentence was already there.
+
 What the rows cannot say, and the honest caveats:
 
 - One run per cell. A model's compliance with prose is not deterministic, so
   arm B's 5 of 6 is one draw. The loop's 6 of 6 is not a draw: the hook does
   not let a red change end a turn. That asymmetry is the argument, and it
   holds whatever the model does on a given day.
-- Sonnet 5.5 follows prose well. Arm A's agents wrote tests and small
-  functions without being told. The gap between prompting and the loop is in
-  design rules, not in diligence, and it would be wider with a smaller model
-  or a larger codebase where a 242-line CLAUDE.md competes with more context.
+- Sonnet 5.5 follows prose well; Haiku 4.5 less so. The gap between
+  prompting and the loop went from two findings to eight when the model got
+  smaller. The gap between the long steering file and the loop stayed at one
+  finding on both models, the same finding, which says the difference there
+  is not diligence but whether a rule can be made precise after it is
+  misread. A larger codebase, where a 242-line CLAUDE.md competes with more
+  context, is untested here.
+- Two cells on Haiku's loop arm sit at complexity 5, the ceiling. Within the
+  rule, and the closest the gate lets anything get.
 - The gate scores what a regex and a coverage report can see. The six prose
   standards are not in the score, so the table understates what a model judge
   would add; `proof/prove-llm.sh` covers that stage.
@@ -292,7 +338,8 @@ What the rows cannot say, and the honest caveats:
   sentence in a CLAUDE.md has none of these.
 
 Reproduce it with `sh proof/compare/compare.sh` (about five minutes per arm,
-three arms in parallel) and `sh proof/compare/report.sh`. One cell:
+three arms in parallel) and `sh proof/compare/report.sh`. Another model:
+`sh proof/compare/compare.sh --model claude-haiku-4-5`. One cell:
 `sh proof/compare/compare.sh C --tasks 04`.
 
 ## How the loop works
@@ -365,8 +412,8 @@ loop has a hole.
 ## Status
 
 Verified end to end in a Linux container: `prove.sh`, `bench.sh`,
-`scale.sh`, `demo.sh`, `prove-llm.sh --stub`, and the 18-cell comparison as
-shown above; the Stop
+`scale.sh`, `demo.sh`, `prove-llm.sh --stub`, and the 36-cell comparison on
+two models as shown above; the Stop
 hook's block output on a red tree and silence on a clean one; the SessionStart
 hook's idempotent second run; and both Hunk paths against a real `hunk diff`
 session under a pseudo-terminal, where `comment clear` plus `comment apply`

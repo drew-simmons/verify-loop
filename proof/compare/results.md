@@ -9,7 +9,7 @@ Gate: 0 passed, 1 a gate failed, 2 the gate could not run (for example, tests th
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | claude-haiku-4-5 | A | 0 of 6 | 8 | computeRefund 16.3; shippingTier 7; library-does-no-io; library-does-no-io; loyaltyPoints 6; receipt 10.2 | 1 | 12 | 38s | $0.57 |
 | claude-haiku-4-5 | B | 5 of 6 | 1 | library-does-no-io | 5 | 13.8 | 62s | $0.66 |
-| claude-haiku-4-5 | C | 5 of 6 | 3 | library-does-no-io | 6 | 24.7 | 99s | $1.21 |
+| claude-haiku-4-5 | C | 6 of 6 | 0 | - | 8 | 25.3 | 102s | $1.26 |
 | claude-sonnet-5-5 | A | 4 of 6 | 2 | no-console; library-does-no-io | 5 | 11.3 | 30s | $0.87 |
 | claude-sonnet-5-5 | B | 5 of 6 | 1 | library-does-no-io | 6 | 10.7 | 31s | $0.94 |
 | claude-sonnet-5-5 | C | 6 of 6 | 0 | - | 7 | 11.2 | 33s | $0.97 |
@@ -33,7 +33,7 @@ Gate: 0 passed, 1 a gate failed, 2 the gate could not run (for example, tests th
 | C | 01-refund | 0 | - | 1 | 4 | 100% | +61 | 29 | 81s | $0.26 | yes |
 | C | 02-express-freight | 0 | - | 1 | 5 | 100% | +31 | 41 | 215s | $0.41 | yes |
 | C | 03-diagnostic-log | 0 | - | 1 | 4 | 100% | +48 | 14 | 60s | $0.11 | yes |
-| C | 04-tax-config | 1 | library-does-no-io | 0 | - | - | +11 | 20 | 59s | $0.12 | yes |
+| C | 04-tax-config | 0 | - | 2 | 4 | 100% | +28 | 24 | 75s | $0.17 | yes |
 | C | 05-loyalty-points | 0 | - | 2 | 5 | 100% | +101 | 19 | 121s | $0.18 | yes |
 | C | 06-receipt | 0 | - | 1 | 4 | 100% | +47 | 25 | 60s | $0.13 | yes |
 
@@ -41,7 +41,7 @@ Gate: 0 passed, 1 a gate failed, 2 the gate could not run (for example, tests th
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | A | 0 of 6 | 8 | 1 | 12 | 38s | $0.57 | 0.2 KB | 15 KB |
 | B | 5 of 6 | 1 | 5 | 13.8 | 62s | $0.66 | 11.4 KB | 944 KB |
-| C | 5 of 6 | 3 | 6 | 24.7 | 99s | $1.21 | 5.9 KB | 866 KB |
+| C | 6 of 6 | 0 | 8 | 25.3 | 102s | $1.26 | 5.9 KB | 890 KB |
 
 ## claude-sonnet-5-5
 

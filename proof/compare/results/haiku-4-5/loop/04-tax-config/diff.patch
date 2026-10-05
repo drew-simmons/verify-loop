@@ -1,11 +1,29 @@
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..883787d 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -20,14 +20,14 @@ function reserveAll(stock, cart) {
+ 
+ /**
+  * Places an order: reserves stock, prices the cart, adds tax and shipping.
+- * `deps` supplies `now()` and `nextId()` so callers, and tests, control time and ids.
++ * `deps` supplies `now()`, `nextId()`, and `taxRates` so callers, and tests, control time, ids, and tax configuration.
+  * Returns { order, stock } where stock is the inventory after the reservation.
+  */
+ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, express }, deps) {
+   const remaining = reserveAll(stock, cart);
+   const price = priceCart(cart, catalog, discountCode);
+   const tier = shippingTier(cartWeight(cart, catalog), zone, express);
+-  const tax = taxFor(price.net, region);
++  const tax = taxFor(price.net, region, deps.taxRates);
+   const shipping = shippingCost(tier);
+   const order = {
+     id: deps.nextId(),
 diff --git a/src/tax.js b/src/tax.js
-index 5224a4b..7e05f21 100644
+index 5224a4b..260b9ef 100644
 --- a/src/tax.js
 +++ b/src/tax.js
-@@ -1,13 +1,12 @@
-+import { readFileSync } from "fs";
-+import { fileURLToPath } from "url";
-+import { dirname, join } from "path";
+@@ -1,18 +1,11 @@
  import { percentOf } from "./money.js";
  
 -/** Sales tax rate by region. Regions not listed are untaxed. */
@@ -14,13 +32,19 @@ index 5224a4b..7e05f21 100644
 -  NY: 0.04,
 -  TX: 0.0625,
 -};
-+const __dirname = dirname(fileURLToPath(import.meta.url));
-+const RATES = JSON.parse(readFileSync(join(__dirname, "../tax-rates.json"), "utf8"));
+-
+ /** The tax rate for a region, zero when the region is untaxed. */
+-export function taxRate(region) {
+-  return RATES[region] ?? 0;
++export function taxRate(region, rates) {
++  return rates[region] ?? 0;
+ }
  
--/** The tax rate for a region, zero when the region is untaxed. */
-+/** Tax rate for a region, zero when the region is untaxed. Rates are loaded from tax-rates.json. */
- export function taxRate(region) {
-   return RATES[region] ?? 0;
+ /** Tax on an amount for a region, rounded to the cent. */
+-export function taxFor(amount, region) {
+-  return percentOf(amount, taxRate(region));
++export function taxFor(amount, region, rates) {
++  return percentOf(amount, taxRate(region, rates));
  }
 diff --git a/tax-rates.json b/tax-rates.json
 new file mode 100644
@@ -33,3 +57,54 @@ index 0000000..bc4c3c4
 +  "NY": 0.04,
 +  "TX": 0.0625
 +}
+diff --git a/test/orders.test.js b/test/orders.test.js
+index cc3117d..c5e9d71 100644
+--- a/test/orders.test.js
++++ b/test/orders.test.js
+@@ -9,7 +9,11 @@ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+   { sku: "DESK", name: "Desk", priceCents: 24900, weightKg: 28 },
+ ]);
+-const deps = { now: () => "2026-10-05T00:00:00Z", nextId: () => "ORD-1" };
++const deps = {
++  now: () => "2026-10-05T00:00:00Z",
++  nextId: () => "ORD-1",
++  taxRates: { CA: 0.0725, NY: 0.04, TX: 0.0625 },
++};
+ 
+ test("an order prices the cart, taxes the net, and ships by weight", () => {
+   const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
+diff --git a/test/tax.test.js b/test/tax.test.js
+index 6065f57..2338ae0 100644
+--- a/test/tax.test.js
++++ b/test/tax.test.js
+@@ -2,17 +2,23 @@ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { taxFor, taxRate } from "../src/tax.js";
+ 
++const rates = {
++  CA: 0.0725,
++  NY: 0.04,
++  TX: 0.0625,
++};
++
+ test("listed regions have their own rate", () => {
+-  assert.equal(taxRate("CA"), 0.0725);
+-  assert.equal(taxRate("NY"), 0.04);
++  assert.equal(taxRate("CA", rates), 0.0725);
++  assert.equal(taxRate("NY", rates), 0.04);
+ });
+ 
+ test("unlisted regions are untaxed", () => {
+-  assert.equal(taxRate("OR"), 0);
+-  assert.equal(taxFor(10000, "OR"), 0);
++  assert.equal(taxRate("OR", rates), 0);
++  assert.equal(taxFor(10000, "OR", rates), 0);
+ });
+ 
+ test("tax rounds to the nearest cent", () => {
+-  assert.equal(taxFor(2300, "CA"), 167);
+-  assert.equal(taxFor(2300, "TX"), 144);
++  assert.equal(taxFor(2300, "CA", rates), 167);
++  assert.equal(taxFor(2300, "TX", rates), 144);
+ });
