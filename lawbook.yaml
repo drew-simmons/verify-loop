@@ -4,11 +4,13 @@
 # every change. The deterministic rules always run and cost milliseconds.
 # The `standard` rules are prose judged by a model, one request per changed
 # file; verify.sh runs them only when AWS_REGION is set for Bedrock and every
-# deterministic stage is green, and they warn rather than fail.
+# deterministic stage is green, and they warn rather than fail. Each has a
+# pass and a fail fixture under proof/fixtures/ that `lawbook test` judges.
 version: 1
 
 llm:
   provider: bedrock
+  model: anthropic.claude-sonnet-5-5
   maxRequests: 20
 
 rules:
@@ -94,6 +96,9 @@ rules:
   - id: names-reveal-intent
     description: Every name says what the thing is or does
     level: warn
+    fixtures:
+      pass: ["proof/fixtures/names-reveal-intent/pass.js"]
+      fail: ["proof/fixtures/names-reveal-intent/fail.js"]
     files: *library
     standard: |
       Every name says what the thing is or does without needing a comment. A
@@ -106,6 +111,9 @@ rules:
   - id: functions-do-one-thing
     description: Every function does one thing at one level of abstraction
     level: warn
+    fixtures:
+      pass: ["proof/fixtures/functions-do-one-thing/pass.js"]
+      fail: ["proof/fixtures/functions-do-one-thing/fail.js"]
     files: *library
     standard: |
       Every function does one thing, stated by its name, at one level of
@@ -119,6 +127,9 @@ rules:
   - id: guard-clauses-over-nesting
     description: The main path reads straight down
     level: warn
+    fixtures:
+      pass: ["proof/fixtures/guard-clauses-over-nesting/pass.js"]
+      fail: ["proof/fixtures/guard-clauses-over-nesting/fail.js"]
     files: *library
     standard: |
       Preconditions and edge cases return or throw early at the top of a
@@ -130,6 +141,9 @@ rules:
   - id: errors-are-handled-not-hidden
     description: Every failure is handled or passed up with context
     level: warn
+    fixtures:
+      pass: ["proof/fixtures/errors-are-handled-not-hidden/pass.js"]
+      fail: ["proof/fixtures/errors-are-handled-not-hidden/fail.js"]
     files: *library
     standard: |
       Every failure is either handled where something can be done about it or
@@ -141,6 +155,9 @@ rules:
   - id: dependencies-are-injected
     description: Logic can be tested without the outside world
     level: warn
+    fixtures:
+      pass: ["proof/fixtures/dependencies-are-injected/pass.js"]
+      fail: ["proof/fixtures/dependencies-are-injected/fail.js"]
     files: *library
     standard: |
       A function that computes a result does not also reach for a clock, a
@@ -153,6 +170,9 @@ rules:
   - id: tests-describe-behavior
     description: Every test reads as a specification
     level: warn
+    fixtures:
+      pass: ["proof/fixtures/tests-describe-behavior/pass.js"]
+      fail: ["proof/fixtures/tests-describe-behavior/fail.js"]
     files: ["test/**/*.test.js"]
     threshold: 0.6
     standard: |

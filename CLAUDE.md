@@ -16,13 +16,18 @@ sh demo.sh                                 # red → green → cached in 60 seco
 sh proof/prove.sh                          # 11 scenarios, each caught or passed as expected
 sh proof/bench.sh                          # stage-by-stage timings
 sh proof/scale.sh 10 50 200                # timings as the codebase grows
+sh proof/prove-llm.sh --stub               # the model stage end to end, no credentials
+AWS_REGION=us-east-1 sh proof/prove-llm.sh # the same with Sonnet 5.5 on Bedrock
 lawbook check . --no-llm                   # the clean-code rules alone
+lawbook test .                             # the prose standards against their fixtures
 ```
 
 `/verify` runs the loop as a skill. The Stop hook in `.claude/settings.json`
 runs it again at the end of every turn that changed something and blocks the
 turn with the findings while the change is red. `BASE=<ref>` changes the base
-from `origin/main`; `HUNK=0` skips the live Hunk session.
+from `origin/main`; `HUNK=0` skips the live Hunk session; `VERIFY_LLM=1|0`
+forces or skips the model stage, which otherwise runs when `AWS_REGION` is
+set; `LAWBOOK_CONFIG=lawbook.stub.yaml` judges with `proof/stub-judge.mjs`.
 
 ## The example project
 
@@ -42,8 +47,11 @@ replace `if` chains. One test file per module in `test/`.
   empty catch, no `==`, no `var`, no nested ternary, no default export, a
   doc comment on every export, an issue on every TODO. Read it before
   arguing with a finding.
-- Verification never needs network access or credentials. The prose
-  standards in `lawbook.yaml` are opt-in through `AWS_REGION` and only warn.
+- The deterministic loop never needs network access or credentials. The six
+  prose standards in `lawbook.yaml` are judged by Sonnet 5.5 on Bedrock, opt
+  in through `AWS_REGION` plus credentials, and only warn. Each has pass and
+  fail fixtures under `proof/fixtures/`; `lawbook test` checks the judge
+  still agrees with them.
 - When a scenario in `proof/scenarios/` stops being caught, the loop has a
   hole; fix the loop, not the scenario.
 - Conventional Commit subjects. No AI attribution in commits.

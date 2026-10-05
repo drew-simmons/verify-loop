@@ -21,6 +21,12 @@ OUT=.verify
 mkdir -p "$OUT"
 THRESHOLD=${THRESHOLD:-5}
 MAX_REQUESTS=${MAX_REQUESTS:-20}
+# The model stage: auto runs it when AWS_REGION or AWS_DEFAULT_REGION is set,
+# 1 forces it, 0 skips it. LAWBOOK_CONFIG swaps the judge (lawbook.stub.yaml).
+VERIFY_LLM=${VERIFY_LLM:-auto}
+LAWBOOK_CONFIG=${LAWBOOK_CONFIG:-lawbook.yaml}
+# LAWBOOK_CACHE_DIR moves lawbook's verdict cache (default node_modules/.cache/lawbook).
+LAWBOOK_CACHE=${LAWBOOK_CACHE_DIR:+--cache-dir "$LAWBOOK_CACHE_DIR"}
 BASE=${BASE:-origin/main}
 git rev-parse -q --verify "$BASE^{commit}" >/dev/null 2>&1 || BASE=main
 MERGE_BASE=$(git merge-base "$BASE" HEAD 2>/dev/null) \
@@ -96,6 +102,17 @@ lawbook_summary() {
   ' "$OUT/lawbook.json" 2>/dev/null
   jq -r '.summary | "  \(.passed) passed, \(.failed) failed, \(.warned) warned, \(.errored) errored, \(.skipped) skipped"' \
     "$OUT/lawbook.json" 2>/dev/null
+  jq -r '.summary.usage | select(.requests + .cached > 0)
+    | "  usage: \(.requests) model request(s), \(.cached) from cache, \(.inputTokens + .cacheReadInputTokens + .cacheCreationInputTokens) tokens in, \(.outputTokens) out"' \
+    "$OUT/lawbook.json" 2>/dev/null
+}
+
+llm_wanted() {
+  case $VERIFY_LLM in
+    0) return 1 ;;
+    1) return 0 ;;
+    *) [ -n "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}" ] ;;
+  esac
 }
 
 echo "verify: $BASE..working tree (merge base ${MERGE_BASE%"${MERGE_BASE#???????}"})"
@@ -113,9 +130,9 @@ fi
 
 stage "2  lawbook, deterministic rules on changed files"
 if ! command -v lawbook >/dev/null 2>&1; then missing lawbook
-elif [ ! -f lawbook.yaml ]; then skip "no lawbook.yaml"
+elif [ ! -f "$LAWBOOK_CONFIG" ]; then skip "no $LAWBOOK_CONFIG"
 else
-  lawbook check . --no-llm --changed --since "$BASE" --format json >"$OUT/lawbook.json"
+  lawbook check . --config "$LAWBOOK_CONFIG" --no-llm --changed --since "$BASE" --format json >"$OUT/lawbook.json"
   record $?
   lawbook_summary
 fi
@@ -151,10 +168,14 @@ fi
 stage "5  lawbook, model-judged standards"
 if [ "$status" -ne 0 ]; then skip "an earlier stage failed; no model requests on a red tree"
 elif ! command -v lawbook >/dev/null 2>&1; then skip "lawbook is not installed"
+elif [ ! -f "$LAWBOOK_CONFIG" ]; then skip "no $LAWBOOK_CONFIG"
 elif ! grep -Eq '^[[:space:]]*standard:' lawbook.yaml 2>/dev/null; then skip "no standard rules in lawbook.yaml"
-elif [ -z "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}" ]; then skip "set AWS_REGION with Bedrock credentials to opt in"
+elif ! llm_wanted; then
+  skip "set AWS_REGION, with AWS_BEARER_TOKEN_BEDROCK, access keys, or a profile, to judge with Bedrock (VERIFY_LLM=1 forces, 0 skips)"
 else
-  lawbook check . --changed --since "$BASE" --max-requests "$MAX_REQUESTS" --format json >"$OUT/lawbook.json"
+  echo "  plan: $(lawbook check . --config "$LAWBOOK_CONFIG" --changed --since "$BASE" --dry-run 2>/dev/null | tail -n 1)"
+  # shellcheck disable=SC2086
+  lawbook check . --config "$LAWBOOK_CONFIG" $LAWBOOK_CACHE --changed --since "$BASE" --max-requests "$MAX_REQUESTS" --format json >"$OUT/lawbook.json"
   record $?
   lawbook_summary
 fi

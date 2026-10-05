@@ -16,7 +16,8 @@
       "Bash(hunk skill path)",
       "Bash(jq *)",
       "Bash(sh proof/*)",
-      "Bash(./proof/*)"
+      "Bash(./proof/*)",
+      "Bash(node proof/stub-judge.mjs)"
     ]
   },
   "hooks": {

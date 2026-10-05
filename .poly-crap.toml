@@ -1,0 +1,3 @@
+# proof/ holds fixtures for lawbook's prose standards and the stub judge; none
+# of it is library code, so poly-crap does not score it.
+exclude = ["proof/**"]

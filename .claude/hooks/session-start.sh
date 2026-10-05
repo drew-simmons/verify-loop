@@ -50,4 +50,11 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
 fi
 
 version() { command -v "$1" >/dev/null 2>&1 && "$1" --version 2>/dev/null | head -n 1 | sed 's/^[^0-9]*//' || echo absent; }
-echo "verify-loop: poly-crap $(version poly-crap), lawbook $(version lawbook), hunk $(version hunk), BASE=origin/main. Run /verify before committing."
+bedrock() {
+  region=${AWS_REGION:-${AWS_DEFAULT_REGION:-}}
+  if [ -z "$region" ]; then echo "off (set AWS_REGION and Bedrock credentials to judge the prose standards)"
+  elif [ -n "${AWS_BEARER_TOKEN_BEDROCK:-}${AWS_ACCESS_KEY_ID:-}${AWS_PROFILE:-}" ] || [ -f "$HOME/.aws/credentials" ]; then echo "ready ($region)"
+  else echo "region $region set but no credentials found"
+  fi
+}
+echo "verify-loop: poly-crap $(version poly-crap), lawbook $(version lawbook), hunk $(version hunk), BASE=origin/main, bedrock $(bedrock). Run /verify before committing."

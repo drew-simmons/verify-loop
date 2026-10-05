@@ -132,6 +132,88 @@ file in its own process; that is the one knob a larger project would turn
 (`--test-isolation=none`, or a test selection step), and the loop's design
 does not change.
 
+## Verifying with a model
+
+The six prose standards in `lawbook.yaml` catch what no regex can: a vague
+name, a function doing two things, nesting where guard clauses belong, an
+error turned into `null`, a dependency reached for inside a function, a test
+named after the function it calls. A model judges each changed file against
+each standard and answers with a probability (lawbook calls it a noul) and a
+reason. A file below the threshold is a warning with the model's reason as
+the message, so you read why before you change anything. They warn rather
+than fail on purpose: a model's verdict is evidence, not a verdict of record.
+
+Stage 5 runs only when the deterministic stages are green, so no request is
+spent on code that is about to change anyway, and only when you opt in:
+
+| Setting | Effect |
+| --- | --- |
+| `AWS_REGION=us-east-1` | runs the stage with Sonnet 5.5 on Bedrock (`anthropic.claude-sonnet-5-5`, set in `lawbook.yaml`) |
+| `VERIFY_LLM=1` / `VERIFY_LLM=0` | forces the stage on, or off, whatever the region says |
+| `MAX_REQUESTS=20` | lawbook stops before the first request when a run would exceed it |
+| `LAWBOOK_CONFIG=lawbook.stub.yaml` | judges with the local stub instead of a model |
+
+Credentials come from the AWS chain, so any one of these works alongside the
+region: `AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key, the simplest), access
+keys, or a profile from `aws configure` or SSO. The identity needs
+`bedrock:InvokeModel` and the model must be enabled for the account in that
+region. In a Claude Code cloud session, add the region and the credential as
+environment secrets in the environment's settings; the SessionStart hook
+reports `bedrock ready (us-east-1)` or `bedrock off` in its first line.
+
+Before any run, `verify` prints the plan: `3 files, 5 model requests`. A
+changed source file costs five requests (one per standard that selects it), a
+changed test file one. lawbook caches verdicts by model, standard, path, and
+content, so a rerun on untouched files costs nothing, and the usage line after
+each run says how many requests were served from the cache.
+
+### The fixtures: does the judge agree with a human?
+
+Each standard has a pass file and a fail file under `proof/fixtures/`, each an
+example where no reasonable reader would disagree. `lawbook test .` judges all
+twelve and exits 1 if one lands on the wrong side of its threshold. That is
+the regression test for the standards themselves: when you reword a standard
+or change the model, run it.
+
+### The proof: `proof/prove-llm.sh`
+
+Seven scenarios edit the tree with a mistake the regexes cannot see (or, for
+the last one, a clean change), run `verify`, and check that the named
+standard warned on the changed file and nothing else broke. Then the clean
+change is judged twice to show the second run is free.
+
+With `--stub` the judge is `proof/stub-judge.mjs`, a 60-line local server
+speaking the chat-completions shape lawbook's `openai` provider expects. It
+answers 0.1 for a file carrying the marker comment or a fail fixture and 0.9
+otherwise, so the run is deterministic and needs no credentials. It proves the
+plumbing: the request, the JSON answer, the `warn` status, the noul in the
+Hunk comment, the cache.
+
+```text
+| # | A developer... | Standard | Verdict | Requests | Time |
+| --- | --- | --- | --- | --- | --- |
+| 11 | adds calc(data, tmp) with obj and helper to money.js | names-reveal-intent | warned, noul 0.1 | 5 | 2.1s |
+| 12 | adds totalAndFormat() that prices the cart and builds the receipt string | functions-do-one-thing | warned, noul 0.1 | 5 | 2.2s |
+| 13 | adds canReserve() as four nested ifs, fully tested | guard-clauses-over-nesting | warned, noul 0.1 | 6 | 2.4s |
+| 14 | adds findProductOrNull() that swallows the not-found error, with tests | errors-are-handled-not-hidden | warned, noul 0.1 | 6 | 2.3s |
+| 15 | adds newOrderId() that calls Math.random() itself instead of taking an id source | dependencies-are-injected | warned, noul 0.1 | 5 | 2.2s |
+| 16 | renames the tax tests to taxRate, taxFor, and works | tests-describe-behavior | warned, noul 0.1 | 1 | 2.3s |
+| 17 | adds giftWrapFee() to pricing with a doc comment and a test | all six | every standard passed | 6 | 2.1s |
+```
+
+Without `--stub`, the same script runs against Bedrock and the verdicts are
+the model's. The expectations are only "below the threshold" and "above the
+threshold", because a probability can move between runs; the fixtures are
+where a drift would show first. Run it yourself:
+
+```sh
+AWS_REGION=us-east-1 sh proof/prove-llm.sh
+```
+
+The build environment for this repository had no Bedrock access, so the
+Bedrock run of this proof has not been recorded here yet. Everything up to the
+HTTP call is exercised by the stub run above.
+
 ## How the loop works
 
 Every stage scopes to the merge base of `origin/main` and `HEAD`, compared
@@ -146,7 +228,7 @@ when `origin/main` does not exist, `main` is used.
 2  lawbook --no-llm              regex and path rules on changed files
 3  node --test with coverage     THE SLOW STEP; writes lcov.info
 4  poly-crap --fail-above        CRAP > 5 in any changed function; every function when a test changed
-5  lawbook standards (model)     only when 1–4 are green and AWS_REGION is set
+5  lawbook standards (model)     only when 1–4 are green and AWS_REGION or VERIFY_LLM=1 is set
 6  findings → Hunk               clear the old comments, apply the new batch, write the sidecar
 ```
 
@@ -155,8 +237,8 @@ when `origin/main` does not exist, `main` is used.
   what they name. `2` the loop itself is broken: a tool, ref, coverage file,
   or credential is missing. Fix the setup, not the code.
 - **No model request on code that will change anyway.** Stage 5 runs only on
-  a deterministic-green tree, under `--max-requests 20`, and lawbook caches
-  verdicts by content.
+  a deterministic-green tree, prints its plan first, stops at
+  `--max-requests 20`, and lawbook caches verdicts by content.
 - **Comments are idempotent.** Each run clears Hunk's comments and applies the
   current set. `.verify/notes.json` holds the same findings in Hunk's sidecar
   format for `hunk diff --agent-notes --agent-context .verify/notes.json`.
@@ -178,8 +260,10 @@ a human in a terminal                      ──►  hunk diff --watch; comment
 | `.claude/hooks/verify-stop.sh` | Stop hook. Exits 0 when nothing changed or verify passes; otherwise emits `{"decision":"block","reason":…}` with verify's summary. The `stop_hook_active` guard means one forced round per turn; the skill carries the loop to green. |
 | `.claude/hooks/session-start.sh` | SessionStart hook. Installs poly-crap, lawbook, and hunk when missing, fetches `origin/main`, prints one line that becomes Claude's context. |
 | `.claude/settings.json` | Wires both hooks and pre-allows the commands the loop runs, so nothing prompts. |
-| `lawbook.yaml` | The definition of clean, above. |
-| `proof/` | `prove.sh`, `bench.sh`, `scale.sh`, and the eleven scenarios. |
+| `lawbook.yaml` | The definition of clean, above, with pass and fail fixtures for each prose standard. |
+| `lawbook.stub.yaml`, `proof/stub-judge.mjs` | The same rules judged by a local stub, for smoke-testing the model stage with no credentials. |
+| `.poly-crap.toml` | Keeps `proof/` out of poly-crap's scoring. |
+| `proof/` | `prove.sh`, `bench.sh`, `scale.sh`, `prove-llm.sh`, the eighteen scenarios, and the fixtures. |
 | `demo.sh` | The 60-second story: red, green, cached. |
 
 Findings become Hunk comments through one jq filter. A poly-crap entry over
@@ -200,10 +284,12 @@ loop has a hole.
 ## Status
 
 Verified end to end in a Linux container: `prove.sh`, `bench.sh`,
-`scale.sh`, and `demo.sh` as shown above; the Stop hook's block output on a
-red tree and silence on a clean one; the SessionStart hook's idempotent
-second run; and both Hunk paths against a real `hunk diff` session under a
-pseudo-terminal, where `comment clear` plus `comment apply` left exactly the
-current findings as live comments and the sidecar loaded as review notes on
-the same lines. Not exercised: the Bedrock stage, which needs credentials; it
-degrades to a skip message without them.
+`scale.sh`, `demo.sh`, and `prove-llm.sh --stub` as shown above; the Stop
+hook's block output on a red tree and silence on a clean one; the SessionStart
+hook's idempotent second run; and both Hunk paths against a real `hunk diff`
+session under a pseudo-terminal, where `comment clear` plus `comment apply`
+left exactly the current findings as live comments and the sidecar loaded as
+review notes on the same lines. Not exercised: the Bedrock run of
+`prove-llm.sh`; the container's AWS keys were not valid for Bedrock. The
+request reached Bedrock and came back `401`, which is the whole path short of
+a valid credential.
