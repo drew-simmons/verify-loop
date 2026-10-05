@@ -7,9 +7,41 @@ Gate: 0 passed, 1 a gate failed, 2 the gate could not run (for example, tests th
 
 | Model | Arm | Gate passed | Findings | Caught by | Tests added | Mean turns | Mean time | Total cost |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| claude-haiku-4-5 | A | 0 of 6 | 8 | computeRefund 16.3; shippingTier 7; library-does-no-io; library-does-no-io; loyaltyPoints 6; receipt 10.2 | 1 | 12 | 38s | $0.57 |
+| claude-haiku-4-5 | B | 5 of 6 | 1 | library-does-no-io | 5 | 13.8 | 62s | $0.66 |
+| claude-haiku-4-5 | C | 5 of 6 | 3 | library-does-no-io | 6 | 24.7 | 99s | $1.21 |
 | claude-sonnet-5-5 | A | 4 of 6 | 2 | no-console; library-does-no-io | 5 | 11.3 | 30s | $0.87 |
 | claude-sonnet-5-5 | B | 5 of 6 | 1 | library-does-no-io | 6 | 10.7 | 31s | $0.94 |
 | claude-sonnet-5-5 | C | 6 of 6 | 0 | - | 7 | 11.2 | 33s | $0.97 |
+
+## claude-haiku-4-5
+
+| Arm | Task | Gate | Caught by | Tests added | Max CC | Min coverage | Lines | Turns | Time | Cost | Hook fired |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A | 01-refund | 1 | computeRefund 16.3 | 0 | 4 | 8% | +21 | 13 | 38s | $0.14 | n/a |
+| A | 02-express-freight | 1 | shippingTier 7 | 0 | 7 | 91% | +15 | 10 | 45s | $0.08 | n/a |
+| A | 03-diagnostic-log | 1 | library-does-no-io | 0 | 2 | 100% | +8 | 6 | 19s | $0.04 | n/a |
+| A | 04-tax-config | 1 | library-does-no-io | 0 | - | - | +11 | 11 | 28s | $0.07 | n/a |
+| A | 05-loyalty-points | 1 | loyaltyPoints 6 | 1 | 6 | 100% | +66 | 18 | 60s | $0.14 | n/a |
+| A | 06-receipt | 1 | receipt 10.2 | 0 | 3 | 7% | +17 | 14 | 40s | $0.09 | n/a |
+| B | 01-refund | 0 | - | 1 | 4 | 100% | +57 | 11 | 49s | $0.09 | n/a |
+| B | 02-express-freight | 0 | - | 1 | 3 | 100% | +21 | 13 | 106s | $0.15 | n/a |
+| B | 03-diagnostic-log | 0 | - | 1 | 4 | 100% | +15 | 13 | 44s | $0.1 | n/a |
+| B | 04-tax-config | 1 | library-does-no-io | 0 | 1 | 100% | +7 | 13 | 31s | $0.06 | n/a |
+| B | 05-loyalty-points | 0 | - | 1 | 4 | 100% | +63 | 17 | 68s | $0.13 | n/a |
+| B | 06-receipt | 0 | - | 1 | 4 | 100% | +61 | 16 | 76s | $0.13 | n/a |
+| C | 01-refund | 0 | - | 1 | 4 | 100% | +61 | 29 | 81s | $0.26 | yes |
+| C | 02-express-freight | 0 | - | 1 | 5 | 100% | +31 | 41 | 215s | $0.41 | yes |
+| C | 03-diagnostic-log | 0 | - | 1 | 4 | 100% | +48 | 14 | 60s | $0.11 | yes |
+| C | 04-tax-config | 1 | library-does-no-io | 0 | - | - | +11 | 20 | 59s | $0.12 | yes |
+| C | 05-loyalty-points | 0 | - | 2 | 5 | 100% | +101 | 19 | 121s | $0.18 | yes |
+| C | 06-receipt | 0 | - | 1 | 4 | 100% | +47 | 25 | 60s | $0.13 | yes |
+
+| Arm | Gate passed | Findings | Tests added | Mean turns | Mean time | Total cost | Steering per turn | Steering carried over the run |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A | 0 of 6 | 8 | 1 | 12 | 38s | $0.57 | 0.2 KB | 15 KB |
+| B | 5 of 6 | 1 | 5 | 13.8 | 62s | $0.66 | 11.4 KB | 944 KB |
+| C | 5 of 6 | 3 | 6 | 24.7 | 99s | $1.21 | 5.9 KB | 866 KB |
 
 ## claude-sonnet-5-5
 

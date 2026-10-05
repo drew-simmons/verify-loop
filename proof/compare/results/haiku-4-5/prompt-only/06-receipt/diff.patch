@@ -1,0 +1,32 @@
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..024badf 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -4,6 +4,7 @@ import { reserve } from "./inventory.js";
+ import { priceCart } from "./pricing.js";
+ import { shippingCost, shippingTier } from "./shipping.js";
+ import { taxFor } from "./tax.js";
++import { formatCents } from "./money.js";
+ 
+ /** Total weight of the cart in kilograms. */
+ function cartWeight(cart, catalog) {
+@@ -40,3 +41,19 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+   };
+   return { order, stock: remaining };
+ }
++
++/** Multi-line printable receipt: cart lines, then subtotal, discount (if any), tax, shipping, and total. */
++export function receipt(order, currency) {
++  const rows = [];
++  for (const line of order.lines) {
++    rows.push(`${line.sku} x${line.quantity}`);
++  }
++  rows.push(`Subtotal: ${formatCents(order.subtotal, currency)}`);
++  if (order.discount > 0) {
++    rows.push(`Discount: ${formatCents(order.discount, currency)}`);
++  }
++  rows.push(`Tax: ${formatCents(order.tax, currency)}`);
++  rows.push(`Shipping (${order.shipping.tier}): ${formatCents(order.shipping.cost, currency)}`);
++  rows.push(`Total: ${formatCents(order.total, currency)}`);
++  return rows.join("\n");
++}

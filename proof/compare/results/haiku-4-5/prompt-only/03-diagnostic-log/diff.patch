@@ -1,0 +1,24 @@
+diff --git a/src/inventory.js b/src/inventory.js
+index d2a313a..0b9150f 100644
+--- a/src/inventory.js
++++ b/src/inventory.js
+@@ -1,11 +1,19 @@
+ import { InsufficientStockError } from "./errors.js";
+ import { assertPositiveInteger } from "./validate.js";
+ 
++export const diagnosticLog = [];
++
+ /** A new stock map with quantity fewer of a sku, or an InsufficientStockError. */
+ export function reserve(stock, sku, quantity) {
+   assertPositiveInteger("quantity", quantity);
+   const available = stock[sku] ?? 0;
+   if (available < quantity) {
++    diagnosticLog.push({
++      timestamp: new Date().toISOString(),
++      sku,
++      wanted: quantity,
++      available,
++    });
+     throw new InsufficientStockError(sku, quantity, available);
+   }
+   return { ...stock, [sku]: available - quantity };

@@ -1,0 +1,90 @@
+diff --git a/src/pricing.js b/src/pricing.js
+index b00e393..8fbb1bf 100644
+--- a/src/pricing.js
++++ b/src/pricing.js
+@@ -29,3 +29,26 @@ export function priceCart(cart, catalog, code) {
+   const discount = discountFor(base, code);
+   return { subtotal: base, discount, net: base - discount };
+ }
++
++/** Calculate loyalty points for an order. */
++export function loyaltyPoints(net, membership, hasExpressShipping, hasDiscountCode) {
++  const pointsPerDollar = Math.floor(net / 100);
++
++  let points = pointsPerDollar;
++
++  if (membership === "silver") {
++    points *= 2;
++  } else if (membership === "gold") {
++    points *= 3;
++  }
++
++  if (hasExpressShipping) {
++    points += 50;
++  }
++
++  if (hasDiscountCode && membership !== "gold") {
++    points = Math.floor(points / 2);
++  }
++
++  return points;
++}
+diff --git a/test/pricing.test.js b/test/pricing.test.js
+index c7af054..039be77 100644
+--- a/test/pricing.test.js
++++ b/test/pricing.test.js
+@@ -2,7 +2,7 @@ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { addItem, emptyCart } from "../src/cart.js";
+ import { createCatalog } from "../src/catalog.js";
+-import { discountFor, priceCart, subtotal } from "../src/pricing.js";
++import { discountFor, loyaltyPoints, priceCart, subtotal } from "../src/pricing.js";
+ 
+ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+@@ -34,3 +34,45 @@ test("an unknown code takes nothing off", () => {
+ test("pricing a cart reports subtotal, discount, and the net", () => {
+   assert.deepEqual(priceCart(cart, catalog, "FLAT500"), { subtotal: 2800, discount: 500, net: 2300 });
+ });
++
++test("standard member earns one point per whole dollar", () => {
++  assert.equal(loyaltyPoints(2599, "standard", false, false), 25);
++  assert.equal(loyaltyPoints(2600, "standard", false, false), 26);
++  assert.equal(loyaltyPoints(100, "standard", false, false), 1);
++  assert.equal(loyaltyPoints(99, "standard", false, false), 0);
++});
++
++test("silver member earns double points", () => {
++  assert.equal(loyaltyPoints(2600, "silver", false, false), 52);
++});
++
++test("gold member earns triple points", () => {
++  assert.equal(loyaltyPoints(2600, "gold", false, false), 78);
++});
++
++test("express shipping adds 50 point bonus", () => {
++  assert.equal(loyaltyPoints(2600, "standard", true, false), 76);
++  assert.equal(loyaltyPoints(2600, "silver", true, false), 102);
++  assert.equal(loyaltyPoints(2600, "gold", true, false), 128);
++});
++
++test("discount code halves points for standard and silver members", () => {
++  assert.equal(loyaltyPoints(2600, "standard", false, true), 13);
++  assert.equal(loyaltyPoints(2600, "silver", false, true), 26);
++});
++
++test("gold member keeps full points even with discount code", () => {
++  assert.equal(loyaltyPoints(2600, "gold", false, true), 78);
++});
++
++test("discount code halves express bonus for standard members", () => {
++  assert.equal(loyaltyPoints(2600, "standard", true, true), 38);
++});
++
++test("discount code halves express bonus for silver members", () => {
++  assert.equal(loyaltyPoints(2600, "silver", true, true), 51);
++});
++
++test("gold member keeps full points with express and discount code", () => {
++  assert.equal(loyaltyPoints(2600, "gold", true, true), 128);
++});

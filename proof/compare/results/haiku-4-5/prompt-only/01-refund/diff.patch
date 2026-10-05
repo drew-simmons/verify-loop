@@ -1,0 +1,36 @@
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..cb1aa68 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -4,6 +4,7 @@ import { reserve } from "./inventory.js";
+ import { priceCart } from "./pricing.js";
+ import { shippingCost, shippingTier } from "./shipping.js";
+ import { taxFor } from "./tax.js";
++import { percentOf } from "./money.js";
+ 
+ /** Total weight of the cart in kilograms. */
+ function cartWeight(cart, catalog) {
+@@ -40,3 +41,23 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+   };
+   return { order, stock: remaining };
+ }
++
++/**
++ * Computes the refund amount for an order based on the reason.
++ * - "damaged": full total amount
++ * - "late": shipping cost only
++ * - "changed-mind": net amount minus 10% restocking fee
++ * - any other reason: 0
++ */
++export function computeRefund(order, reason) {
++  switch (reason) {
++    case "damaged":
++      return order.total;
++    case "late":
++      return order.shipping.cost;
++    case "changed-mind":
++      return percentOf(order.net, 0.9);
++    default:
++      return 0;
++  }
++}

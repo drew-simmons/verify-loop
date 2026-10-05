@@ -1,0 +1,93 @@
+verify: f2546763e5ae196e5124b12458405e1f7737e19e..working tree (merge base f254676)
+
+▸ 1  syntax (node --check on changed files)
+  1 file(s) ok
+  took 46 ms
+
+▸ 2  lawbook, deterministic rules on changed files
+  13 passed, 0 failed, 0 warned, 0 errored, 6 skipped
+  took 354 ms
+
+▸ 3  tests with coverage
+✔ adding the same sku twice accumulates its quantity (4.784756ms)
+✔ adding leaves the original cart unchanged (0.635124ms)
+✔ removing a sku drops its line and ignores skus that are not there (0.411502ms)
+✔ a blank sku or a non-positive quantity is rejected (0.952204ms)
+✔ a catalog finds products by sku (1.638306ms)
+✔ an unknown sku is a not-found error naming it (1.07403ms)
+✔ a product without a sku or with a fractional price is rejected (0.287164ms)
+✔ a validation error names the value and what it must be (1.307826ms)
+✔ a not-found error names the kind and key and says what to do (2.016516ms)
+✔ an insufficient-stock error states both quantities (0.279672ms)
+✔ reserving reduces stock and leaves the original map unchanged (3.258718ms)
+✔ reserving more than is in stock fails and names the shortfall (0.924405ms)
+✔ releasing adds stock, even for a sku never seen before (0.245301ms)
+✔ a non-positive quantity cannot be reserved or released (0.233929ms)
+✔ whole non-negative cents are accepted as amounts (2.524572ms)
+✔ fractional or negative amounts are rejected (0.735443ms)
+✔ adding amounts sums their cents (0.159754ms)
+✔ a percentage of an amount rounds to the nearest cent (0.14805ms)
+✔ amounts format with two fraction digits (0.385162ms)
+✔ an order prices the cart, taxes the net, and ships by weight (4.306977ms)
+✔ an order that cannot be fully stocked is refused before anything is priced (0.935859ms)
+✔ the subtotal multiplies each line by its catalog price (1.503451ms)
+✔ an empty cart has a subtotal of zero (0.213532ms)
+✔ SAVE10 takes ten percent off, rounded to the cent (0.305272ms)
+✔ FLAT500 takes five dollars off but never more than the amount (0.207808ms)
+✔ an unknown code takes nothing off (0.262395ms)
+✔ pricing a cart reports subtotal, discount, and the net (1.997871ms)
+✔ weight tiers break at five and twenty kilograms (1.402606ms)
+✔ a parcel with no weight is rejected (0.751932ms)
+✔ domestic parcels carry only their weight tier (0.189663ms)
+✔ international and express add suffixes in that order (0.142123ms)
+✔ shipping cost is the tier's flat cost plus each surcharge (0.329615ms)
+✔ listed regions have their own rate (2.943596ms)
+✔ unlisted regions are untaxed (0.404424ms)
+✔ tax rounds to the nearest cent (0.244721ms)
+✔ a positive integer passes (3.650335ms)
+✔ zero, negatives, and fractions are rejected as quantities (1.078535ms)
+✔ a non-empty string passes (0.317102ms)
+✔ an empty string or a non-string is rejected (0.357262ms)
+ℹ tests 39
+ℹ suites 0
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 616.498563
+ℹ start of coverage report
+ℹ --------------------------------------------------------------
+ℹ file          | line % | branch % | funcs % | uncovered lines
+ℹ --------------------------------------------------------------
+ℹ src           |        |          |         | 
+ℹ  cart.js      | 100.00 |   100.00 |  100.00 | 
+ℹ  catalog.js   | 100.00 |   100.00 |  100.00 | 
+ℹ  errors.js    | 100.00 |   100.00 |  100.00 | 
+ℹ  inventory.js | 100.00 |   100.00 |  100.00 | 
+ℹ  money.js     | 100.00 |   100.00 |  100.00 | 
+ℹ  orders.js    |  82.54 |   100.00 |   83.33 | 53-63
+ℹ  pricing.js   | 100.00 |   100.00 |  100.00 | 
+ℹ  shipping.js  | 100.00 |   100.00 |  100.00 | 
+ℹ  tax.js       | 100.00 |   100.00 |  100.00 | 
+ℹ  validate.js  | 100.00 |   100.00 |  100.00 | 
+ℹ --------------------------------------------------------------
+ℹ all files     |  96.18 |   100.00 |   97.14 | 
+ℹ --------------------------------------------------------------
+ℹ end of coverage report
+  took 924 ms
+
+▸ 4  poly-crap on changed functions (threshold 5)
+  src/orders.js:52 computeRefund  CRAP 16.3  CC 4  coverage 8%
+  took 42 ms
+
+▸ 5  lawbook, model-judged standards
+  skipped: an earlier stage failed; no model requests on a red tree
+  took 3 ms
+
+▸ 6  findings to Hunk
+  no live Hunk session; wrote .verify/notes.json (1 annotation(s))
+  open it with: hunk diff --agent-notes --agent-context .verify/notes.json
+  took 21 ms
+
+verify: 1 finding(s) in 1408 ms. Fix only what is named above, then run again.

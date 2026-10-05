@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/drew-simmons/poly-crap/main/schemas/report-v1.json",
+  "version": "0.8.1",
+  "entries": [
+    {
+      "language": "javascript",
+      "file": "./src/shipping.js",
+      "symbol": "shippingTier",
+      "start_line": 28,
+      "end_line": 50,
+      "complexity": 7.0,
+      "coverage": 91.30434782608695,
+      "coverage_basis": "line",
+      "score": 7.032218295389168,
+      "uncovered": [
+        {
+          "start": 37,
+          "end": 38
+        }
+      ]
+    }
+  ],
+  "diagnostics": {
+    "candidate_files": 1,
+    "parsed_files": 1,
+    "analyzed_files": 1,
+    "coverage_files": 1,
+    "matched_files": 1,
+    "source_only_count": 0,
+    "coverage_only_count": 0,
+    "warning_count": 0,
+    "source_only_examples": [],
+    "coverage_only_examples": [],
+    "warnings": []
+  }
+}

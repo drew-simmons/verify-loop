@@ -1,0 +1,57 @@
+diff --git a/src/shipping.js b/src/shipping.js
+index 57200e4..d57cf64 100644
+--- a/src/shipping.js
++++ b/src/shipping.js
+@@ -24,19 +24,28 @@ export function weightTier(weightKg) {
+   return "standard";
+ }
+ 
+-/** The weight tier plus "intl" and "express" suffixes, joined with dashes. */
++function tierWithExpress(tier, express) {
++  return express ? `${tier}-express` : tier;
++}
++
++function tierWithIntlExpress(tier, express, isFreight) {
++  if (!express) {
++    return `${tier}-intl`;
++  }
++  return isFreight ? `${tier}-express-intl` : `${tier}-intl-express`;
++}
++
++/** The weight tier plus "intl" and "express" suffixes, joined with dashes. For freight-international, express comes before intl. */
+ export function shippingTier(weightKg, zone, express) {
+   if (!(weightKg > 0)) {
+     throw new ValidationError("weightKg", "greater than zero");
+   }
+-  const parts = [weightTier(weightKg)];
++  const tier = weightTier(weightKg);
++  const isFreight = tier === "freight";
+   if (zone === "international") {
+-    parts.push("intl");
+-  }
+-  if (express) {
+-    parts.push("express");
++    return tierWithIntlExpress(tier, express, isFreight);
+   }
+-  return parts.join("-");
++  return tierWithExpress(tier, express);
+ }
+ 
+ /** The cost in cents of a tier string such as "heavy-intl-express". */
+diff --git a/test/shipping.test.js b/test/shipping.test.js
+index dfccb70..ad2cb52 100644
+--- a/test/shipping.test.js
++++ b/test/shipping.test.js
+@@ -22,7 +22,12 @@ test("international and express add suffixes in that order", () => {
+   assert.equal(shippingTier(25, "international", false), "freight-intl");
+ });
+ 
++test("freight-international-express puts express before intl", () => {
++  assert.equal(shippingTier(25, "international", true), "freight-express-intl");
++});
++
+ test("shipping cost is the tier's flat cost plus each surcharge", () => {
+   assert.equal(shippingCost("standard"), 500);
+   assert.equal(shippingCost("heavy-intl-express"), 1200 + 1500 + 900);
++  assert.equal(shippingCost("freight-express-intl"), 4500 + 900 + 1500);
+ });

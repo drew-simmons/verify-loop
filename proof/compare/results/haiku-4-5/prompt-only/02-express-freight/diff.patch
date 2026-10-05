@@ -1,0 +1,33 @@
+diff --git a/src/shipping.js b/src/shipping.js
+index 57200e4..9adccdc 100644
+--- a/src/shipping.js
++++ b/src/shipping.js
+@@ -29,13 +29,23 @@ export function shippingTier(weightKg, zone, express) {
+   if (!(weightKg > 0)) {
+     throw new ValidationError("weightKg", "greater than zero");
+   }
+-  const parts = [weightTier(weightKg)];
+-  if (zone === "international") {
+-    parts.push("intl");
+-  }
+-  if (express) {
++  const base = weightTier(weightKg);
++  const parts = [base];
++
++  // For freight + international + express, put express before intl
++  if (base === "freight" && zone === "international" && express) {
+     parts.push("express");
++    parts.push("intl");
++  } else {
++    // Standard order: intl first, then express
++    if (zone === "international") {
++      parts.push("intl");
++    }
++    if (express) {
++      parts.push("express");
++    }
+   }
++
+   return parts.join("-");
+ }
+ 

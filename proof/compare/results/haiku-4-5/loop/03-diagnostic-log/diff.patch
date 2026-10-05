@@ -1,0 +1,80 @@
+diff --git a/src/inventory.js b/src/inventory.js
+index d2a313a..3e9cc3d 100644
+--- a/src/inventory.js
++++ b/src/inventory.js
+@@ -1,11 +1,33 @@
+ import { InsufficientStockError } from "./errors.js";
+ import { assertPositiveInteger } from "./validate.js";
+ 
++const diagnostics = [];
++
++/** Record a stock reservation failure for support review. */
++export function addDiagnostic(sku, quantityWanted, quantityAvailable) {
++  diagnostics.push({
++    sku,
++    quantityWanted,
++    quantityAvailable,
++  });
++}
++
++/** Return all recorded diagnostics. */
++export function getDiagnostics() {
++  return [...diagnostics];
++}
++
++/** Clear all recorded diagnostics. */
++export function clearDiagnostics() {
++  diagnostics.length = 0;
++}
++
+ /** A new stock map with quantity fewer of a sku, or an InsufficientStockError. */
+ export function reserve(stock, sku, quantity) {
+   assertPositiveInteger("quantity", quantity);
+   const available = stock[sku] ?? 0;
+   if (available < quantity) {
++    addDiagnostic(sku, quantity, available);
+     throw new InsufficientStockError(sku, quantity, available);
+   }
+   return { ...stock, [sku]: available - quantity };
+diff --git a/test/inventory.test.js b/test/inventory.test.js
+index e4427b1..eebd95b 100644
+--- a/test/inventory.test.js
++++ b/test/inventory.test.js
+@@ -1,7 +1,7 @@
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { InsufficientStockError, ValidationError } from "../src/errors.js";
+-import { release, reserve } from "../src/inventory.js";
++import { release, reserve, clearDiagnostics, getDiagnostics } from "../src/inventory.js";
+ 
+ test("reserving reduces stock and leaves the original map unchanged", () => {
+   const stock = { MUG: 10 };
+@@ -23,3 +23,28 @@ test("a non-positive quantity cannot be reserved or released", () => {
+   assert.throws(() => reserve({ MUG: 1 }, "MUG", 0), ValidationError);
+   assert.throws(() => release({ MUG: 1 }, "MUG", -1), ValidationError);
+ });
++
++test("reservation failures add diagnostics for support review", () => {
++  clearDiagnostics();
++  assert.throws(() => reserve({ MUG: 2 }, "MUG", 5), InsufficientStockError);
++  const diagnostics = getDiagnostics();
++  assert.equal(diagnostics.length, 1);
++  assert.deepEqual(diagnostics[0], { sku: "MUG", quantityWanted: 5, quantityAvailable: 2 });
++});
++
++test("multiple reservation failures accumulate in diagnostics", () => {
++  clearDiagnostics();
++  assert.throws(() => reserve({ MUG: 2 }, "MUG", 5), InsufficientStockError);
++  assert.throws(() => reserve({ PEN: 1 }, "PEN", 3), InsufficientStockError);
++  const diagnostics = getDiagnostics();
++  assert.equal(diagnostics.length, 2);
++  assert.deepEqual(diagnostics[1], { sku: "PEN", quantityWanted: 3, quantityAvailable: 1 });
++});
++
++test("clearing diagnostics removes all records", () => {
++  clearDiagnostics();
++  assert.throws(() => reserve({ MUG: 2 }, "MUG", 5), InsufficientStockError);
++  assert.equal(getDiagnostics().length, 1);
++  clearDiagnostics();
++  assert.equal(getDiagnostics().length, 0);
++});

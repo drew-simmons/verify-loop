@@ -1,0 +1,78 @@
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..0788c9a 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -4,6 +4,7 @@ import { reserve } from "./inventory.js";
+ import { priceCart } from "./pricing.js";
+ import { shippingCost, shippingTier } from "./shipping.js";
+ import { taxFor } from "./tax.js";
++import { formatCents } from "./money.js";
+ 
+ /** Total weight of the cart in kilograms. */
+ function cartWeight(cart, catalog) {
+@@ -40,3 +41,22 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+   };
+   return { order, stock: remaining };
+ }
++
++/** Formats an order as a multi-line printable receipt string. */
++export function receipt(order, currency) {
++  const receiptLines = [];
++
++  for (const line of order.lines) {
++    receiptLines.push(`${line.sku} x${line.quantity}`);
++  }
++
++  receiptLines.push(`Subtotal: ${formatCents(order.subtotal, currency)}`);
++  if (order.discount > 0) {
++    receiptLines.push(`Discount: ${formatCents(order.discount, currency)}`);
++  }
++  receiptLines.push(`Tax: ${formatCents(order.tax, currency)}`);
++  receiptLines.push(`Shipping (${order.shipping.tier}): ${formatCents(order.shipping.cost, currency)}`);
++  receiptLines.push(`Total: ${formatCents(order.total, currency)}`);
++
++  return receiptLines.join("\n");
++}
+diff --git a/test/orders.test.js b/test/orders.test.js
+index cc3117d..abf3168 100644
+--- a/test/orders.test.js
++++ b/test/orders.test.js
+@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
+ import { addItem, emptyCart } from "../src/cart.js";
+ import { createCatalog } from "../src/catalog.js";
+ import { InsufficientStockError } from "../src/errors.js";
+-import { placeOrder } from "../src/orders.js";
++import { placeOrder, receipt } from "../src/orders.js";
+ 
+ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+@@ -35,3 +35,29 @@ test("an order that cannot be fully stocked is refused before anything is priced
+     InsufficientStockError,
+   );
+ });
++
++test("receipt formats order with discount", () => {
++  const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
++  const { order } = placeOrder(
++    { cart, catalog, stock: { MUG: 5, DESK: 1 }, discountCode: "FLAT500", region: "CA", zone: "domestic", express: true },
++    deps,
++  );
++  const text = receipt(order, "USD");
++  assert.equal(
++    text,
++    "MUG x2\nDESK x1\nSubtotal: USD 274.00\nDiscount: USD 5.00\nTax: USD 19.50\nShipping (freight-express): USD 54.00\nTotal: USD 342.50",
++  );
++});
++
++test("receipt formats order without discount", () => {
++  const cart = addItem(emptyCart(), "MUG", 1);
++  const { order } = placeOrder(
++    { cart, catalog, stock: { MUG: 5, DESK: 1 }, region: "CA", zone: "domestic", express: false },
++    deps,
++  );
++  const text = receipt(order, "EUR");
++  assert.equal(
++    text,
++    "MUG x1\nSubtotal: EUR 12.50\nTax: EUR 0.91\nShipping (standard): EUR 5.00\nTotal: EUR 18.41",
++  );
++});

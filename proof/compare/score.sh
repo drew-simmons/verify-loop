@@ -12,15 +12,20 @@ cd "$DIR" || exit 2
 [ "$ARM" != C ] && rm -rf .claude lawbook.yaml .poly-crap.toml
 rm -rf .verify lcov.info
 
-# The agent's work is everything since the arm's base commit, untracked files included.
+# The agent's work is everything since the arm's base commit, untracked files
+# included, and commits the agent made on top (an agent may commit; the base
+# commit is the one compare.sh made).
+BASE_SHA=$(git rev-list -n 1 --grep='arm . starting state' HEAD 2>/dev/null)
+[ -n "$BASE_SHA" ] || BASE_SHA=HEAD
+agent_commits=$(git rev-list --count "$BASE_SHA..HEAD" 2>/dev/null || echo 0)
 git add -A -N . 2>/dev/null
-git diff --stat >"$OUT/diff.stat"
-git diff >"$OUT/diff.patch"
-files_changed=$(git diff --name-only | wc -l | tr -d ' ')
-tests_changed=$(git diff --name-only -- test | wc -l | tr -d ' ')
-rules_touched=$(git diff --name-only -- lawbook.yaml .poly-crap.toml .claude | wc -l | tr -d ' ')
-lines_added=$(git diff --numstat | awk '{ a += $1 } END { print a + 0 }')
-lines_removed=$(git diff --numstat | awk '{ r += $2 } END { print r + 0 }')
+git diff --stat "$BASE_SHA" >"$OUT/diff.stat"
+git diff "$BASE_SHA" >"$OUT/diff.patch"
+files_changed=$(git diff --name-only "$BASE_SHA" | wc -l | tr -d ' ')
+tests_changed=$(git diff --name-only "$BASE_SHA" -- test | wc -l | tr -d ' ')
+rules_touched=$(git diff --name-only "$BASE_SHA" -- lawbook.yaml .poly-crap.toml .claude | wc -l | tr -d ' ')
+lines_added=$(git diff --numstat "$BASE_SHA" | awk '{ a += $1 } END { print a + 0 }')
+lines_removed=$(git diff --numstat "$BASE_SHA" | awk '{ r += $2 } END { print r + 0 }')
 git reset -q
 jq -r '.result // ""' "$OUT/claude.json" >"$OUT/result.md" 2>/dev/null
 
@@ -33,7 +38,7 @@ cp "$SRC"/.claude/skills/verify/scripts/* .claude/skills/verify/scripts/
 cp "$SRC/lawbook.yaml" lawbook.yaml
 cp "$SRC/.poly-crap.toml" .poly-crap.toml
 rm -rf .verify lcov.info
-HUNK=0 VERIFY_LLM=0 BASE=main sh .claude/skills/verify/scripts/verify.sh >"$OUT/verify.log" 2>&1
+HUNK=0 VERIFY_LLM=0 BASE="$BASE_SHA" sh .claude/skills/verify/scripts/verify.sh >"$OUT/verify.log" 2>&1
 gate=$?
 for f in crap lawbook; do
   [ -s ".verify/$f.json" ] && cp ".verify/$f.json" "$OUT/$f.json"
@@ -60,7 +65,7 @@ jq -n \
   --argjson crap_over "${crap_over:-0}" --arg crap_names "$crap_names" \
   --argjson law_fail "${law_fail:-0}" --arg law_rules "$law_rules" \
   --argjson files_changed "$files_changed" --argjson tests_changed "$tests_changed" \
-  --argjson rules_touched "$rules_touched" --argjson lines_added "$lines_added" --argjson lines_removed "$lines_removed" \
+  --argjson rules_touched "$rules_touched" --argjson lines_added "$lines_added" --argjson lines_removed "$lines_removed" --argjson agent_commits "${agent_commits:-0}" \
   --argjson changed_fns "${changed_fns:-0}" --argjson max_crap "${max_crap:-0}" --argjson max_cc "${max_cc:-0}" --argjson min_cov "${min_cov:-100}" \
   --argjson steering_bytes "${steering_bytes:-0}" --argjson hook_ran "$hook_ran" \
   --slurpfile claude "$OUT/claude.json" \
@@ -70,7 +75,7 @@ jq -n \
       lawbook_fail: $law_fail, rules: $law_rules,
       tests_pass: $tests_pass, tests_fail: $tests_fail,
       files_changed: $files_changed, tests_changed: $tests_changed, rules_touched: $rules_touched,
-      lines_added: $lines_added, lines_removed: $lines_removed,
+      lines_added: $lines_added, lines_removed: $lines_removed, agent_commits: $agent_commits,
       changed_fns: $changed_fns, max_crap: $max_crap, max_cc: $max_cc, min_cov: $min_cov,
       turns: ($c.num_turns // null), duration_ms: ($c.duration_ms // $wall_ms), wall_ms: $wall_ms,
       cost_usd: ($c.total_cost_usd // null),

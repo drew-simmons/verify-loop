@@ -1,0 +1,98 @@
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..b1bdff4 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -4,6 +4,7 @@ import { reserve } from "./inventory.js";
+ import { priceCart } from "./pricing.js";
+ import { shippingCost, shippingTier } from "./shipping.js";
+ import { taxFor } from "./tax.js";
++import { computeRefund } from "./refunds.js";
+ 
+ /** Total weight of the cart in kilograms. */
+ function cartWeight(cart, catalog) {
+@@ -40,3 +41,5 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+   };
+   return { order, stock: remaining };
+ }
++
++export { computeRefund } from "./refunds.js";
+diff --git a/src/refunds.js b/src/refunds.js
+new file mode 100644
+index 0000000..ef270d0
+--- /dev/null
++++ b/src/refunds.js
+@@ -0,0 +1,20 @@
++import { percentOf } from "./money.js";
++
++/**
++ * Computes the refund amount for an order based on the reason.
++ * "damaged" refunds the full total, "late" refunds the shipping cost,
++ * "changed-mind" refunds the net amount minus a 10% restocking fee,
++ * and any other reason refunds nothing. Returns amount in cents.
++ */
++export function computeRefund(order, reason) {
++  switch (reason) {
++    case "damaged":
++      return order.total;
++    case "late":
++      return order.shipping.cost;
++    case "changed-mind":
++      return order.net - percentOf(order.net, 0.1);
++    default:
++      return 0;
++  }
++}
+diff --git a/test/orders.test.js b/test/orders.test.js
+index cc3117d..77df70c 100644
+--- a/test/orders.test.js
++++ b/test/orders.test.js
+@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
+ import { addItem, emptyCart } from "../src/cart.js";
+ import { createCatalog } from "../src/catalog.js";
+ import { InsufficientStockError } from "../src/errors.js";
+-import { placeOrder } from "../src/orders.js";
++import { placeOrder, computeRefund } from "../src/orders.js";
+ 
+ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+@@ -35,3 +35,40 @@ test("an order that cannot be fully stocked is refused before anything is priced
+     InsufficientStockError,
+   );
+ });
++
++test("damaged reason refunds the full total", () => {
++  const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
++  const { order } = placeOrder(
++    { cart, catalog, stock: { MUG: 5, DESK: 1 }, discountCode: "FLAT500", region: "CA", zone: "domestic", express: true },
++    deps,
++  );
++  assert.equal(computeRefund(order, "damaged"), order.total);
++});
++
++test("late reason refunds the shipping cost", () => {
++  const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
++  const { order } = placeOrder(
++    { cart, catalog, stock: { MUG: 5, DESK: 1 }, discountCode: "FLAT500", region: "CA", zone: "domestic", express: true },
++    deps,
++  );
++  assert.equal(computeRefund(order, "late"), order.shipping.cost);
++});
++
++test("changed-mind reason refunds net minus 10% restocking fee", () => {
++  const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
++  const { order } = placeOrder(
++    { cart, catalog, stock: { MUG: 5, DESK: 1 }, discountCode: "FLAT500", region: "CA", zone: "domestic", express: true },
++    deps,
++  );
++  const expected = order.net - Math.round(order.net * 0.1);
++  assert.equal(computeRefund(order, "changed-mind"), expected);
++});
++
++test("unknown reason refunds nothing", () => {
++  const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
++  const { order } = placeOrder(
++    { cart, catalog, stock: { MUG: 5, DESK: 1 }, discountCode: "FLAT500", region: "CA", zone: "domestic", express: true },
++    deps,
++  );
++  assert.equal(computeRefund(order, "some-other-reason"), 0);
++});

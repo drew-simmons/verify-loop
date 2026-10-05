@@ -1,0 +1,35 @@
+diff --git a/src/tax.js b/src/tax.js
+index 5224a4b..7e05f21 100644
+--- a/src/tax.js
++++ b/src/tax.js
+@@ -1,13 +1,12 @@
++import { readFileSync } from "fs";
++import { fileURLToPath } from "url";
++import { dirname, join } from "path";
+ import { percentOf } from "./money.js";
+ 
+-/** Sales tax rate by region. Regions not listed are untaxed. */
+-const RATES = {
+-  CA: 0.0725,
+-  NY: 0.04,
+-  TX: 0.0625,
+-};
++const __dirname = dirname(fileURLToPath(import.meta.url));
++const RATES = JSON.parse(readFileSync(join(__dirname, "../tax-rates.json"), "utf8"));
+ 
+-/** The tax rate for a region, zero when the region is untaxed. */
++/** Tax rate for a region, zero when the region is untaxed. Rates are loaded from tax-rates.json. */
+ export function taxRate(region) {
+   return RATES[region] ?? 0;
+ }
+diff --git a/tax-rates.json b/tax-rates.json
+new file mode 100644
+index 0000000..bc4c3c4
+--- /dev/null
++++ b/tax-rates.json
+@@ -0,0 +1,5 @@
++{
++  "CA": 0.0725,
++  "NY": 0.04,
++  "TX": 0.0625
++}

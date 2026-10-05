@@ -1,54 +1,54 @@
-verify: main..working tree (merge base c77aec7)
+verify: c77aec7360f0b1b0c316197acab526428af2b1bc..working tree (merge base c77aec7)
 
 ▸ 1  syntax (node --check on changed files)
   1 file(s) ok
-  took 34 ms
+  took 45 ms
 
 ▸ 2  lawbook, deterministic rules on changed files
   FAIL [library-does-no-io] src/tax.js:1: take the value as a parameter; the caller reads files and the clock (see placeOrder's deps)
   12 passed, 1 failed, 0 warned, 0 errored, 6 skipped
-  took 302 ms
+  took 419 ms
 
 ▸ 3  tests with coverage
-✔ adding the same sku twice accumulates its quantity (2.626396ms)
-✔ adding leaves the original cart unchanged (0.472723ms)
-✔ removing a sku drops its line and ignores skus that are not there (0.219072ms)
-✔ a blank sku or a non-positive quantity is rejected (0.894881ms)
-✔ a catalog finds products by sku (1.13175ms)
-✔ an unknown sku is a not-found error naming it (0.718582ms)
-✔ a product without a sku or with a fractional price is rejected (0.338741ms)
-✔ a validation error names the value and what it must be (1.114229ms)
-✔ a not-found error names the kind and key and says what to do (1.799913ms)
-✔ an insufficient-stock error states both quantities (0.194625ms)
-✔ reserving reduces stock and leaves the original map unchanged (2.474107ms)
-✔ reserving more than is in stock fails and names the shortfall (0.665569ms)
-✔ releasing adds stock, even for a sku never seen before (0.169561ms)
-✔ a non-positive quantity cannot be reserved or released (0.216155ms)
-✔ whole non-negative cents are accepted as amounts (1.122143ms)
-✔ fractional or negative amounts are rejected (0.893734ms)
-✔ adding amounts sums their cents (0.236419ms)
-✔ a percentage of an amount rounds to the nearest cent (0.136878ms)
-✔ amounts format with two fraction digits (0.207904ms)
-✔ an order prices the cart, taxes the net, and ships by weight (3.284159ms)
-✔ an order that cannot be fully stocked is refused before anything is priced (0.730504ms)
-✔ the subtotal multiplies each line by its catalog price (1.273918ms)
-✔ an empty cart has a subtotal of zero (0.149201ms)
-✔ SAVE10 takes ten percent off, rounded to the cent (0.149754ms)
-✔ FLAT500 takes five dollars off but never more than the amount (0.17518ms)
-✔ an unknown code takes nothing off (0.173821ms)
-✔ pricing a cart reports subtotal, discount, and the net (1.701382ms)
-✔ weight tiers break at five and twenty kilograms (1.0398ms)
-✔ a parcel with no weight is rejected (0.570949ms)
-✔ domestic parcels carry only their weight tier (0.133682ms)
-✔ international and express add suffixes in that order (0.106876ms)
-✔ shipping cost is the tier's flat cost plus each surcharge (0.246612ms)
-✔ listed regions have their own rate (1.004592ms)
-✔ unlisted regions are untaxed (0.276893ms)
-✔ tax rounds to the nearest cent (0.115161ms)
-✔ a positive integer passes (2.162525ms)
-✔ zero, negatives, and fractions are rejected as quantities (0.529106ms)
-✔ a non-empty string passes (0.186154ms)
-✔ an empty string or a non-string is rejected (0.140739ms)
+✔ adding the same sku twice accumulates its quantity (3.486068ms)
+✔ adding leaves the original cart unchanged (0.35534ms)
+✔ removing a sku drops its line and ignores skus that are not there (0.33533ms)
+✔ a blank sku or a non-positive quantity is rejected (0.714334ms)
+✔ a catalog finds products by sku (1.748168ms)
+✔ an unknown sku is a not-found error naming it (0.789861ms)
+✔ a product without a sku or with a fractional price is rejected (0.303618ms)
+✔ a validation error names the value and what it must be (2.369823ms)
+✔ a not-found error names the kind and key and says what to do (3.17567ms)
+✔ an insufficient-stock error states both quantities (0.525932ms)
+✔ reserving reduces stock and leaves the original map unchanged (3.250249ms)
+✔ reserving more than is in stock fails and names the shortfall (1.132387ms)
+✔ releasing adds stock, even for a sku never seen before (0.266843ms)
+✔ a non-positive quantity cannot be reserved or released (0.237332ms)
+✔ whole non-negative cents are accepted as amounts (1.421038ms)
+✔ fractional or negative amounts are rejected (0.661145ms)
+✔ adding amounts sums their cents (0.157918ms)
+✔ a percentage of an amount rounds to the nearest cent (0.213197ms)
+✔ amounts format with two fraction digits (0.285799ms)
+✔ an order prices the cart, taxes the net, and ships by weight (3.503069ms)
+✔ an order that cannot be fully stocked is refused before anything is priced (0.766429ms)
+✔ the subtotal multiplies each line by its catalog price (2.151539ms)
+✔ an empty cart has a subtotal of zero (0.221475ms)
+✔ SAVE10 takes ten percent off, rounded to the cent (0.204006ms)
+✔ FLAT500 takes five dollars off but never more than the amount (0.217126ms)
+✔ an unknown code takes nothing off (0.241496ms)
+✔ pricing a cart reports subtotal, discount, and the net (2.105972ms)
+✔ weight tiers break at five and twenty kilograms (1.271356ms)
+✔ a parcel with no weight is rejected (0.698992ms)
+✔ domestic parcels carry only their weight tier (0.235826ms)
+✔ international and express add suffixes in that order (0.150723ms)
+✔ shipping cost is the tier's flat cost plus each surcharge (0.411743ms)
+✔ listed regions have their own rate (1.281534ms)
+✔ unlisted regions are untaxed (0.381774ms)
+✔ tax rounds to the nearest cent (0.151062ms)
+✔ a positive integer passes (4.04632ms)
+✔ zero, negatives, and fractions are rejected as quantities (0.909227ms)
+✔ a non-empty string passes (0.254264ms)
+✔ an empty string or a non-string is rejected (0.261549ms)
 ℹ tests 39
 ℹ suites 0
 ℹ pass 39
@@ -56,7 +56,7 @@ verify: main..working tree (merge base c77aec7)
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 427.383369
+ℹ duration_ms 609.67256
 ℹ start of coverage report
 ℹ --------------------------------------------------------------
 ℹ file          | line % | branch % | funcs % | uncovered lines
@@ -76,11 +76,11 @@ verify: main..working tree (merge base c77aec7)
 ℹ all files     | 100.00 |   100.00 |  100.00 | 
 ℹ --------------------------------------------------------------
 ℹ end of coverage report
-  took 694 ms
+  took 976 ms
 
 ▸ 4  poly-crap on changed functions (threshold 5)
   no changed function scores above 5
-  took 28 ms
+  took 47 ms
 
 ▸ 5  lawbook, model-judged standards
   skipped: an earlier stage failed; no model requests on a red tree
@@ -89,6 +89,6 @@ verify: main..working tree (merge base c77aec7)
 ▸ 6  findings to Hunk
   no live Hunk session; wrote .verify/notes.json (1 annotation(s))
   open it with: hunk diff --agent-notes --agent-context .verify/notes.json
-  took 15 ms
+  took 20 ms
 
-verify: 1 finding(s) in 1090 ms. Fix only what is named above, then run again.
+verify: 1 finding(s) in 1529 ms. Fix only what is named above, then run again.

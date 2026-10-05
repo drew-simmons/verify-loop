@@ -1,0 +1,3 @@
+ src/pricing.js       | 23 +++++++++++++++++++++++
+ test/pricing.test.js | 44 +++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 66 insertions(+), 1 deletion(-)
