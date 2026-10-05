@@ -6,6 +6,11 @@ set -u
 DIR=$1; OUT=$2; ARM=$3; CLAUDE_RC=$4; WALL_MS=$5; MODEL=$6
 SRC=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$DIR" || exit 2
+[ -f .verify/stop.log ] && : >"$OUT/hook_ran"
+
+# On a rescore, drop the gate files a previous scoring copied into an arm that did not have them.
+[ "$ARM" != C ] && rm -rf .claude lawbook.yaml .poly-crap.toml
+rm -rf .verify lcov.info
 
 # The agent's work is everything since the arm's base commit, untracked files included.
 git add -A -N . 2>/dev/null
@@ -13,11 +18,15 @@ git diff --stat >"$OUT/diff.stat"
 git diff >"$OUT/diff.patch"
 files_changed=$(git diff --name-only | wc -l | tr -d ' ')
 tests_changed=$(git diff --name-only -- test | wc -l | tr -d ' ')
+rules_touched=$(git diff --name-only -- lawbook.yaml .poly-crap.toml .claude | wc -l | tr -d ' ')
+lines_added=$(git diff --numstat | awk '{ a += $1 } END { print a + 0 }')
+lines_removed=$(git diff --numstat | awk '{ r += $2 } END { print r + 0 }')
 git reset -q
+jq -r '.result // ""' "$OUT/claude.json" >"$OUT/result.md" 2>/dev/null
 
 # Did the loop's Stop hook run during the agent's session? (arm C only; it writes .verify/stop.log)
 hook_ran=false
-[ -f .verify/stop.log ] && hook_ran=true
+[ -f "$OUT/hook_ran" ] && hook_ran=true
 # The canonical gate, whatever the arm removed.
 mkdir -p .claude/skills/verify/scripts
 cp "$SRC"/.claude/skills/verify/scripts/* .claude/skills/verify/scripts/
@@ -33,6 +42,10 @@ done
 tests_pass=$(sed -n 's/^ℹ pass \([0-9]*\)$/\1/p' "$OUT/verify.log" | head -n 1)
 tests_fail=$(sed -n 's/^ℹ fail \([0-9]*\)$/\1/p' "$OUT/verify.log" | head -n 1)
 crap_over=$(jq '[.entries[] | select(.score > 5)] | length' "$OUT/crap.json" 2>/dev/null || echo 0)
+changed_fns=$(jq '.entries | length' "$OUT/crap.json" 2>/dev/null || echo 0)
+max_crap=$(jq '[.entries[].score] | max // 0 | . * 10 | round / 10' "$OUT/crap.json" 2>/dev/null || echo 0)
+max_cc=$(jq '[.entries[].complexity] | max // 0 | round' "$OUT/crap.json" 2>/dev/null || echo 0)
+min_cov=$(jq '[.entries[].coverage // 0] | min // 100 | round' "$OUT/crap.json" 2>/dev/null || echo 100)
 crap_names=$(jq -r '[.entries[] | select(.score > 5) | "\(.symbol) \(.score * 10 | round / 10)"] | join("; ")' "$OUT/crap.json" 2>/dev/null)
 law_fail=$(jq '[.results[] | select(.status == "fail") | .findings[]] | length' "$OUT/lawbook.json" 2>/dev/null || echo 0)
 law_rules=$(jq -r '[.results[] | select(.status == "fail") | .id] | join("; ")' "$OUT/lawbook.json" 2>/dev/null)
@@ -47,6 +60,8 @@ jq -n \
   --argjson crap_over "${crap_over:-0}" --arg crap_names "$crap_names" \
   --argjson law_fail "${law_fail:-0}" --arg law_rules "$law_rules" \
   --argjson files_changed "$files_changed" --argjson tests_changed "$tests_changed" \
+  --argjson rules_touched "$rules_touched" --argjson lines_added "$lines_added" --argjson lines_removed "$lines_removed" \
+  --argjson changed_fns "${changed_fns:-0}" --argjson max_crap "${max_crap:-0}" --argjson max_cc "${max_cc:-0}" --argjson min_cov "${min_cov:-100}" \
   --argjson steering_bytes "${steering_bytes:-0}" --argjson hook_ran "$hook_ran" \
   --slurpfile claude "$OUT/claude.json" \
   '($claude[0] // {}) as $c
@@ -54,7 +69,9 @@ jq -n \
       findings: ($crap_over + $law_fail), crap_over: $crap_over, crap: $crap_names,
       lawbook_fail: $law_fail, rules: $law_rules,
       tests_pass: $tests_pass, tests_fail: $tests_fail,
-      files_changed: $files_changed, tests_changed: $tests_changed,
+      files_changed: $files_changed, tests_changed: $tests_changed, rules_touched: $rules_touched,
+      lines_added: $lines_added, lines_removed: $lines_removed,
+      changed_fns: $changed_fns, max_crap: $max_crap, max_cc: $max_cc, min_cov: $min_cov,
       turns: ($c.num_turns // null), duration_ms: ($c.duration_ms // $wall_ms), wall_ms: $wall_ms,
       cost_usd: ($c.total_cost_usd // null),
       input_tokens: (($c.usage.input_tokens // 0) + ($c.usage.cache_read_input_tokens // 0) + ($c.usage.cache_creation_input_tokens // 0)),

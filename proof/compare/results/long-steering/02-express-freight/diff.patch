@@ -1,0 +1,71 @@
+diff --git a/src/shipping.js b/src/shipping.js
+index 57200e4..2231c67 100644
+--- a/src/shipping.js
++++ b/src/shipping.js
+@@ -24,19 +24,28 @@ export function weightTier(weightKg) {
+   return "standard";
+ }
+ 
+-/** The weight tier plus "intl" and "express" suffixes, joined with dashes. */
++/**
++ * The tier's suffixes in carrier order: "intl" then "express", except that
++ * freight parcels list "express" first.
++ */
++function tierSuffixes(tier, zone, express) {
++  const intlSuffixes = zone === "international" ? ["intl"] : [];
++  const expressSuffixes = express ? ["express"] : [];
++  return tier === "freight"
++    ? [...expressSuffixes, ...intlSuffixes]
++    : [...intlSuffixes, ...expressSuffixes];
++}
++
++/**
++ * The weight tier plus "intl" and "express" suffixes, joined with dashes, such
++ * as "heavy-intl-express" or "freight-express-intl".
++ */
+ export function shippingTier(weightKg, zone, express) {
+   if (!(weightKg > 0)) {
+     throw new ValidationError("weightKg", "greater than zero");
+   }
+-  const parts = [weightTier(weightKg)];
+-  if (zone === "international") {
+-    parts.push("intl");
+-  }
+-  if (express) {
+-    parts.push("express");
+-  }
+-  return parts.join("-");
++  const tier = weightTier(weightKg);
++  return [tier, ...tierSuffixes(tier, zone, express)].join("-");
+ }
+ 
+ /** The cost in cents of a tier string such as "heavy-intl-express". */
+diff --git a/test/shipping.test.js b/test/shipping.test.js
+index dfccb70..0de2fee 100644
+--- a/test/shipping.test.js
++++ b/test/shipping.test.js
+@@ -22,7 +22,24 @@ test("international and express add suffixes in that order", () => {
+   assert.equal(shippingTier(25, "international", false), "freight-intl");
+ });
+ 
++test("international express parcels over 20 kg list express before intl", () => {
++  assert.equal(shippingTier(25, "international", true), "freight-express-intl");
++});
++
++test("international express parcels of exactly 20 kg keep intl before express", () => {
++  assert.equal(shippingTier(20, "international", true), "heavy-intl-express");
++});
++
++test("domestic freight parcels can be sent express", () => {
++  assert.equal(shippingTier(25, "domestic", true), "freight-express");
++});
++
+ test("shipping cost is the tier's flat cost plus each surcharge", () => {
+   assert.equal(shippingCost("standard"), 500);
+   assert.equal(shippingCost("heavy-intl-express"), 1200 + 1500 + 900);
+ });
++
++test("shipping cost does not depend on suffix order", () => {
++  assert.equal(shippingCost("freight-express-intl"), 4500 + 900 + 1500);
++  assert.equal(shippingCost("freight-express"), 4500 + 900);
++});

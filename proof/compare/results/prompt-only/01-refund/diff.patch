@@ -1,0 +1,73 @@
+diff --git a/README.md b/README.md
+index 55e41db..d5cb093 100644
+--- a/README.md
++++ b/README.md
+@@ -10,6 +10,6 @@ An order-processing library in plain ESM JavaScript with no dependencies.
+ - `src/tax.js`: tax rates by region.
+ - `src/shipping.js`: shipping tiers by weight, zone, and speed, and their cost.
+ - `src/inventory.js`: reserving and releasing stock.
+-- `src/orders.js`: placeOrder composes the above into an order record.
++- `src/orders.js`: placeOrder composes the above into an order record; refundFor computes a refund by reason.
+ 
+ Tests are in `test/`, one file per module, run with `npm test`.
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..6e4290f 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -1,6 +1,7 @@
+ import { findProduct } from "./catalog.js";
+ import { lines } from "./cart.js";
+ import { reserve } from "./inventory.js";
++import { percentOf } from "./money.js";
+ import { priceCart } from "./pricing.js";
+ import { shippingCost, shippingTier } from "./shipping.js";
+ import { taxFor } from "./tax.js";
+@@ -40,3 +41,22 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+   };
+   return { order, stock: remaining };
+ }
++
++const RESTOCKING_RATE = 0.1;
++
++/**
++ * The cents to refund for an order, by reason. "damaged" refunds the total, "late" the
++ * shipping cost, "changed-mind" the net less a 10% restocking fee. Other reasons refund nothing.
++ */
++export function refundFor(order, reason) {
++  switch (reason) {
++    case "damaged":
++      return order.total;
++    case "late":
++      return order.shipping.cost;
++    case "changed-mind":
++      return order.net - percentOf(order.net, RESTOCKING_RATE);
++    default:
++      return 0;
++  }
++}
+diff --git a/test/orders.test.js b/test/orders.test.js
+index cc3117d..ede5c77 100644
+--- a/test/orders.test.js
++++ b/test/orders.test.js
+@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
+ import { addItem, emptyCart } from "../src/cart.js";
+ import { createCatalog } from "../src/catalog.js";
+ import { InsufficientStockError } from "../src/errors.js";
+-import { placeOrder } from "../src/orders.js";
++import { placeOrder, refundFor } from "../src/orders.js";
+ 
+ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+@@ -35,3 +35,12 @@ test("an order that cannot be fully stocked is refused before anything is priced
+     InsufficientStockError,
+   );
+ });
++
++test("refunds depend on the reason", () => {
++  const order = { net: 26905, total: 26905 + 1950 + 5400, shipping: { tier: "freight-express", cost: 5400 } };
++  assert.equal(refundFor(order, "damaged"), 34255);
++  assert.equal(refundFor(order, "late"), 5400);
++  assert.equal(refundFor(order, "changed-mind"), 26905 - 2691);
++  assert.equal(refundFor(order, "other"), 0);
++  assert.equal(refundFor(order, undefined), 0);
++});

@@ -1,0 +1,76 @@
+diff --git a/README.md b/README.md
+index 55e41db..ad9007c 100644
+--- a/README.md
++++ b/README.md
+@@ -7,7 +7,7 @@ An order-processing library in plain ESM JavaScript with no dependencies.
+ - `src/catalog.js`: a catalog of products keyed by sku.
+ - `src/cart.js`: immutable carts of sku and quantity.
+ - `src/pricing.js`: subtotal, discount codes, cart pricing.
+-- `src/tax.js`: tax rates by region.
++- `src/tax.js`: tax by region, using the rates in `tax-rates.json` (finance edits that file and redeploys).
+ - `src/shipping.js`: shipping tiers by weight, zone, and speed, and their cost.
+ - `src/inventory.js`: reserving and releasing stock.
+ - `src/orders.js`: placeOrder composes the above into an order record.
+diff --git a/src/tax.js b/src/tax.js
+index 5224a4b..bbd9571 100644
+--- a/src/tax.js
++++ b/src/tax.js
+@@ -1,15 +1,9 @@
+ import { percentOf } from "./money.js";
+-
+-/** Sales tax rate by region. Regions not listed are untaxed. */
+-const RATES = {
+-  CA: 0.0725,
+-  NY: 0.04,
+-  TX: 0.0625,
+-};
++import salesTaxRates from "../tax-rates.json" with { type: "json" };
+ 
+ /** The tax rate for a region, zero when the region is untaxed. */
+ export function taxRate(region) {
+-  return RATES[region] ?? 0;
++  return salesTaxRates[region] ?? 0;
+ }
+ 
+ /** Tax on an amount for a region, rounded to the cent. */
+diff --git a/tax-rates.json b/tax-rates.json
+new file mode 100644
+index 0000000..bc4c3c4
+--- /dev/null
++++ b/tax-rates.json
+@@ -0,0 +1,5 @@
++{
++  "CA": 0.0725,
++  "NY": 0.04,
++  "TX": 0.0625
++}
+diff --git a/test/tax.test.js b/test/tax.test.js
+index 6065f57..14d924e 100644
+--- a/test/tax.test.js
++++ b/test/tax.test.js
+@@ -1,10 +1,13 @@
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { taxFor, taxRate } from "../src/tax.js";
++import { percentOf } from "../src/money.js";
++import salesTaxRates from "../tax-rates.json" with { type: "json" };
+ 
+-test("listed regions have their own rate", () => {
+-  assert.equal(taxRate("CA"), 0.0725);
+-  assert.equal(taxRate("NY"), 0.04);
++// Expectations read tax-rates.json so finance can change a rate without breaking tests.
++test("listed regions have the rate in tax-rates.json", () => {
++  assert.equal(taxRate("CA"), salesTaxRates.CA);
++  assert.equal(taxRate("NY"), salesTaxRates.NY);
+ });
+ 
+ test("unlisted regions are untaxed", () => {
+@@ -13,6 +16,6 @@ test("unlisted regions are untaxed", () => {
+ });
+ 
+ test("tax rounds to the nearest cent", () => {
+-  assert.equal(taxFor(2300, "CA"), 167);
+-  assert.equal(taxFor(2300, "TX"), 144);
++  assert.equal(taxFor(2300, "CA"), percentOf(2300, salesTaxRates.CA));
++  assert.equal(taxFor(2300, "TX"), percentOf(2300, salesTaxRates.TX));
+ });

@@ -1,2 +1,3 @@
- src/inventory.js | 1 +
- 1 file changed, 1 insertion(+)
+ src/inventory.js       | 8 ++++++--
+ test/inventory.test.js | 8 ++++++++
+ 2 files changed, 14 insertions(+), 2 deletions(-)

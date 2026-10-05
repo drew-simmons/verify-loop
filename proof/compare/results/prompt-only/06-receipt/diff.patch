@@ -1,0 +1,69 @@
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..bc8fbbd 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -1,6 +1,7 @@
+ import { findProduct } from "./catalog.js";
+ import { lines } from "./cart.js";
+ import { reserve } from "./inventory.js";
++import { formatCents } from "./money.js";
+ import { priceCart } from "./pricing.js";
+ import { shippingCost, shippingTier } from "./shipping.js";
+ import { taxFor } from "./tax.js";
+@@ -40,3 +41,16 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+   };
+   return { order, stock: remaining };
+ }
++
++/** A printable receipt for an order: its lines, then the amounts, each formatted in `currency`. */
++export function receipt(order, currency) {
++  const money = (amount) => formatCents(amount, currency);
++  return [
++    ...order.lines.map((line) => `${line.sku} x ${line.quantity}`),
++    `Subtotal: ${money(order.subtotal)}`,
++    ...(order.discount > 0 ? [`Discount: -${money(order.discount)}`] : []),
++    `Tax: ${money(order.tax)}`,
++    `Shipping (${order.shipping.tier}): ${money(order.shipping.cost)}`,
++    `Total: ${money(order.total)}`,
++  ].join("\n");
++}
+diff --git a/test/orders.test.js b/test/orders.test.js
+index cc3117d..6e934cd 100644
+--- a/test/orders.test.js
++++ b/test/orders.test.js
+@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
+ import { addItem, emptyCart } from "../src/cart.js";
+ import { createCatalog } from "../src/catalog.js";
+ import { InsufficientStockError } from "../src/errors.js";
+-import { placeOrder } from "../src/orders.js";
++import { placeOrder, receipt } from "../src/orders.js";
+ 
+ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+@@ -28,6 +28,26 @@ test("an order prices the cart, taxes the net, and ships by weight", () => {
+   assert.equal(order.total, 26900 + 1950 + 5400);
+ });
+ 
++test("a receipt lists lines and amounts, with the discount only when there is one", () => {
++  const cart = addItem(addItem(emptyCart(), "MUG", 2), "DESK", 1);
++  const base = { cart, catalog, stock: { MUG: 5, DESK: 1 }, region: "CA", zone: "domestic", express: true };
++  const discounted = placeOrder({ ...base, discountCode: "FLAT500" }, deps).order;
++  assert.equal(
++    receipt(discounted, "USD"),
++    [
++      "MUG x 2",
++      "DESK x 1",
++      "Subtotal: USD 274.00",
++      "Discount: -USD 5.00",
++      "Tax: USD 19.50",
++      "Shipping (freight-express): USD 54.00",
++      "Total: USD 342.50",
++    ].join("\n"),
++  );
++  const plain = placeOrder(base, deps).order;
++  assert.ok(!receipt(plain, "USD").includes("Discount"));
++});
++
+ test("an order that cannot be fully stocked is refused before anything is priced", () => {
+   const cart = addItem(emptyCart(), "DESK", 2);
+   assert.throws(

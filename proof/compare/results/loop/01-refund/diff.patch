@@ -1,0 +1,60 @@
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..903954c 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -1,6 +1,7 @@
+ import { findProduct } from "./catalog.js";
+ import { lines } from "./cart.js";
+ import { reserve } from "./inventory.js";
++import { percentOf } from "./money.js";
+ import { priceCart } from "./pricing.js";
+ import { shippingCost, shippingTier } from "./shipping.js";
+ import { taxFor } from "./tax.js";
+@@ -40,3 +41,20 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+   };
+   return { order, stock: remaining };
+ }
++
++const RESTOCKING_RATE = 0.1;
++
++const REFUND_RULES = {
++  damaged: (order) => order.total,
++  late: (order) => order.shipping.cost,
++  "changed-mind": (order) => order.net - percentOf(order.net, RESTOCKING_RATE),
++};
++
++/**
++ * Refund in cents for an order and a reason: "damaged" refunds the total, "late" the
++ * shipping cost, "changed-mind" the net amount less a 10% restocking fee. Any other reason refunds 0.
++ */
++export function refundFor(order, reason) {
++  const rule = Object.hasOwn(REFUND_RULES, reason) ? REFUND_RULES[reason] : () => 0;
++  return rule(order);
++}
+diff --git a/test/orders.test.js b/test/orders.test.js
+index cc3117d..978a8c3 100644
+--- a/test/orders.test.js
++++ b/test/orders.test.js
+@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
+ import { addItem, emptyCart } from "../src/cart.js";
+ import { createCatalog } from "../src/catalog.js";
+ import { InsufficientStockError } from "../src/errors.js";
+-import { placeOrder } from "../src/orders.js";
++import { placeOrder, refundFor } from "../src/orders.js";
+ 
+ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+@@ -35,3 +35,13 @@ test("an order that cannot be fully stocked is refused before anything is priced
+     InsufficientStockError,
+   );
+ });
++
++test("refunds follow the reason: total, shipping, net less restocking fee, or nothing", () => {
++  const order = { net: 26905, shipping: { cost: 5400 }, total: 34255 };
++  assert.equal(refundFor(order, "damaged"), 34255);
++  assert.equal(refundFor(order, "late"), 5400);
++  assert.equal(refundFor(order, "changed-mind"), 26905 - 2691);
++  assert.equal(refundFor(order, "other"), 0);
++  assert.equal(refundFor(order, undefined), 0);
++  assert.equal(refundFor(order, "toString"), 0);
++});

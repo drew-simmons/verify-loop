@@ -1,0 +1,5 @@
+ src/orders.js        |  5 +++--
+ src/pricing.js       | 23 +++++++++++++++++++++++
+ test/orders.test.js  | 10 ++++++++++
+ test/pricing.test.js | 23 ++++++++++++++++++++++-
+ 4 files changed, 58 insertions(+), 3 deletions(-)

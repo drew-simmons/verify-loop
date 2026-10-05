@@ -1,0 +1,3 @@
+ src/errors.js          | 5 ++++-
+ test/inventory.test.js | 8 ++++++++
+ 2 files changed, 12 insertions(+), 1 deletion(-)

@@ -33,7 +33,7 @@
       "findings": [
         {
           "path": "src/inventory.js",
-          "line": 9,
+          "line": 8,
           "message": "remove the console call; return a value or throw instead"
         }
       ]

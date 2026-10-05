@@ -1,40 +1,39 @@
 diff --git a/src/inventory.js b/src/inventory.js
-index d2a313a..d9a4fca 100644
+index d2a313a..a2353bb 100644
 --- a/src/inventory.js
 +++ b/src/inventory.js
-@@ -1,11 +1,18 @@
+@@ -1,11 +1,16 @@
  import { InsufficientStockError } from "./errors.js";
  import { assertPositiveInteger } from "./validate.js";
  
 -/** A new stock map with quantity fewer of a sku, or an InsufficientStockError. */
 -export function reserve(stock, sku, quantity) {
-+const ignoreDiagnostic = () => {};
-+
 +/**
 + * A new stock map with quantity fewer of a sku, or an InsufficientStockError.
-+ * When stock falls short, `recordDiagnostic` is called first with
-+ * `{ sku, wanted, available }` so the caller can keep it for support.
++ * When stock falls short, `record({ sku, wanted, available })` is called before
++ * the throw, so the caller decides where the diagnostic goes; the library does no I/O.
 + */
-+export function reserve(stock, sku, quantity, recordDiagnostic = ignoreDiagnostic) {
++export function reserve(stock, sku, quantity, record) {
    assertPositiveInteger("quantity", quantity);
    const available = stock[sku] ?? 0;
    if (available < quantity) {
-+    recordDiagnostic({ sku, wanted: quantity, available });
++    record?.({ sku, wanted: quantity, available });
      throw new InsufficientStockError(sku, quantity, available);
    }
    return { ...stock, [sku]: available - quantity };
 diff --git a/test/inventory.test.js b/test/inventory.test.js
-index e4427b1..4ecfe88 100644
+index e4427b1..d599382 100644
 --- a/test/inventory.test.js
 +++ b/test/inventory.test.js
-@@ -14,6 +14,22 @@ test("reserving more than is in stock fails and names the shortfall", () => {
+@@ -14,6 +14,23 @@ test("reserving more than is in stock fails and names the shortfall", () => {
    assert.throws(() => reserve({}, "PEN", 1), InsufficientStockError);
  });
  
 +test("a failed reservation records the sku, quantity wanted, and quantity available", () => {
 +  const records = [];
-+  assert.throws(() => reserve({ MUG: 2 }, "MUG", 5, (record) => records.push(record)));
-+  assert.throws(() => reserve({}, "PEN", 1, (record) => records.push(record)));
++  const record = (entry) => records.push(entry);
++  assert.throws(() => reserve({ MUG: 2 }, "MUG", 5, record), InsufficientStockError);
++  assert.throws(() => reserve({}, "PEN", 1, record), InsufficientStockError);
 +  assert.deepEqual(records, [
 +    { sku: "MUG", wanted: 5, available: 2 },
 +    { sku: "PEN", wanted: 1, available: 0 },
@@ -43,7 +42,7 @@ index e4427b1..4ecfe88 100644
 +
 +test("a successful reservation records nothing", () => {
 +  const records = [];
-+  reserve({ MUG: 5 }, "MUG", 5, (record) => records.push(record));
++  reserve({ MUG: 5 }, "MUG", 5, (entry) => records.push(entry));
 +  assert.deepEqual(records, []);
 +});
 +

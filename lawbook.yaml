@@ -37,8 +37,8 @@ rules:
   - id: library-does-no-io
     description: The library is pure; the caller owns time, files, and the network
     files: *library
-    forbid: 'from "node:(fs|http|https|net|child_process|os)"|\bfetch\(|process\.(exit|env)|Date\.now\(|new Date\('
-    message: take the value as a parameter; the caller does the I/O (see placeOrder's deps)
+    forbid: 'from "node:(fs|http|https|net|child_process|os)"|\bfetch\(|process\.(exit|env)|Date\.now\(|new Date\(|with \{ type: "json" \}'
+    message: take the value as a parameter; the caller reads files and the clock (see placeOrder's deps)
 
   - id: no-empty-catch
     description: Errors are handled or passed up, never swallowed

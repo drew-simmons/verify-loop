@@ -1,0 +1,45 @@
+diff --git a/README.md b/README.md
+index 55e41db..6f09ba1 100644
+--- a/README.md
++++ b/README.md
+@@ -7,7 +7,7 @@ An order-processing library in plain ESM JavaScript with no dependencies.
+ - `src/catalog.js`: a catalog of products keyed by sku.
+ - `src/cart.js`: immutable carts of sku and quantity.
+ - `src/pricing.js`: subtotal, discount codes, cart pricing.
+-- `src/tax.js`: tax rates by region.
++- `src/tax.js`: tax rates by region, read from `tax-rates.json` at the repo root (edit it and redeploy to change rates).
+ - `src/shipping.js`: shipping tiers by weight, zone, and speed, and their cost.
+ - `src/inventory.js`: reserving and releasing stock.
+ - `src/orders.js`: placeOrder composes the above into an order record.
+diff --git a/src/tax.js b/src/tax.js
+index 5224a4b..465c7cc 100644
+--- a/src/tax.js
++++ b/src/tax.js
+@@ -1,11 +1,10 @@
++import { readFileSync } from "node:fs";
+ import { percentOf } from "./money.js";
+ 
+-/** Sales tax rate by region. Regions not listed are untaxed. */
+-const RATES = {
+-  CA: 0.0725,
+-  NY: 0.04,
+-  TX: 0.0625,
+-};
++/** Sales tax rate by region, from tax-rates.json. Regions not listed are untaxed. */
++const RATES = JSON.parse(
++  readFileSync(new URL("../tax-rates.json", import.meta.url), "utf8"),
++);
+ 
+ /** The tax rate for a region, zero when the region is untaxed. */
+ export function taxRate(region) {
+diff --git a/tax-rates.json b/tax-rates.json
+new file mode 100644
+index 0000000..bc4c3c4
+--- /dev/null
++++ b/tax-rates.json
+@@ -0,0 +1,5 @@
++{
++  "CA": 0.0725,
++  "NY": 0.04,
++  "TX": 0.0625
++}

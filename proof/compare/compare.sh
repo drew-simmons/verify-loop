@@ -67,8 +67,11 @@ prepare() {
 trust() {
   config="$HOME/.claude.json"
   [ -f "$config" ] || echo '{}' >"$config"
+  # arms run in parallel; a mkdir lock keeps two edits from racing
+  until mkdir "$config.lock" 2>/dev/null; do sleep 1; done
   jq --arg dir "$1" '.projects[$dir] = ((.projects[$dir] // {}) + {hasTrustDialogAccepted: true})' "$config" >"$config.tmp" \
     && mv "$config.tmp" "$config"
+  rmdir "$config.lock"
 }
 
 run() {
@@ -84,7 +87,7 @@ run() {
     cd "$dir" || exit 2
     env -u CLAUDECODE timeout "$TIMEOUT" claude -p "$(cat "$SRC/$task")" \
       --model "$MODEL" --output-format json --max-turns "$MAX_TURNS" \
-      --no-session-persistence --allowedTools "$ALLOWED"
+      --no-session-persistence --allowedTools "$ALLOWED" </dev/null
   ) >"$out/claude.json" 2>"$out/claude.err"
   rc=$?
   wall=$(($(now_ms) - start))

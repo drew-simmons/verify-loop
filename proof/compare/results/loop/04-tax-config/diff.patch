@@ -1,0 +1,30 @@
+diff --git a/src/tax.js b/src/tax.js
+index 5224a4b..c32bb3b 100644
+--- a/src/tax.js
++++ b/src/tax.js
+@@ -1,11 +1,8 @@
+ import { percentOf } from "./money.js";
++import RATES from "../tax-rates.json" with { type: "json" };
+ 
+-/** Sales tax rate by region. Regions not listed are untaxed. */
+-const RATES = {
+-  CA: 0.0725,
+-  NY: 0.04,
+-  TX: 0.0625,
+-};
++// RATES maps region to sales tax rate and lives in tax-rates.json at the repo
++// root so finance can edit it. Regions not listed are untaxed.
+ 
+ /** The tax rate for a region, zero when the region is untaxed. */
+ export function taxRate(region) {
+diff --git a/tax-rates.json b/tax-rates.json
+new file mode 100644
+index 0000000..bc4c3c4
+--- /dev/null
++++ b/tax-rates.json
+@@ -0,0 +1,5 @@
++{
++  "CA": 0.0725,
++  "NY": 0.04,
++  "TX": 0.0625
++}

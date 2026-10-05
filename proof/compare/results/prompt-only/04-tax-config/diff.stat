@@ -1,0 +1,4 @@
+ README.md      |  2 +-
+ src/tax.js     | 11 +++++------
+ tax-rates.json |  5 +++++
+ 3 files changed, 11 insertions(+), 7 deletions(-)

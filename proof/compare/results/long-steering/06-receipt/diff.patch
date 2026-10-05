@@ -1,0 +1,102 @@
+diff --git a/README.md b/README.md
+index 55e41db..99d6dc1 100644
+--- a/README.md
++++ b/README.md
+@@ -10,6 +10,6 @@ An order-processing library in plain ESM JavaScript with no dependencies.
+ - `src/tax.js`: tax rates by region.
+ - `src/shipping.js`: shipping tiers by weight, zone, and speed, and their cost.
+ - `src/inventory.js`: reserving and releasing stock.
+-- `src/orders.js`: placeOrder composes the above into an order record.
++- `src/orders.js`: placeOrder composes the above into an order record; `receipt` renders an order as printable text.
+ 
+ Tests are in `test/`, one file per module, run with `npm test`.
+diff --git a/src/orders.js b/src/orders.js
+index b20288a..6116967 100644
+--- a/src/orders.js
++++ b/src/orders.js
+@@ -1,6 +1,7 @@
+ import { findProduct } from "./catalog.js";
+ import { lines } from "./cart.js";
+ import { reserve } from "./inventory.js";
++import { formatCents } from "./money.js";
+ import { priceCart } from "./pricing.js";
+ import { shippingCost, shippingTier } from "./shipping.js";
+ import { taxFor } from "./tax.js";
+@@ -40,3 +41,29 @@ export function placeOrder({ cart, catalog, stock, discountCode, region, zone, e
+   };
+   return { order, stock: remaining };
+ }
++
++/** The receipt line for one cart line: its sku and quantity. */
++function lineText({ sku, quantity }) {
++  return `${sku} x${quantity}`;
++}
++
++/** The discount receipt line, or no lines at all when the order has no discount. */
++function discountLines(order, currency) {
++  return order.discount > 0 ? [`Discount: ${formatCents(order.discount, currency)}`] : [];
++}
++
++/**
++ * A printable multi-line receipt for an order: one line per cart line, then subtotal,
++ * discount (only when there is one), tax, shipping with its tier, and total,
++ * with amounts formatted like "USD 12.50".
++ */
++export function receipt(order, currency) {
++  return [
++    ...order.lines.map(lineText),
++    `Subtotal: ${formatCents(order.subtotal, currency)}`,
++    ...discountLines(order, currency),
++    `Tax: ${formatCents(order.tax, currency)}`,
++    `Shipping (${order.shipping.tier}): ${formatCents(order.shipping.cost, currency)}`,
++    `Total: ${formatCents(order.total, currency)}`,
++  ].join("\n");
++}
+diff --git a/test/orders.test.js b/test/orders.test.js
+index cc3117d..6388dbe 100644
+--- a/test/orders.test.js
++++ b/test/orders.test.js
+@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
+ import { addItem, emptyCart } from "../src/cart.js";
+ import { createCatalog } from "../src/catalog.js";
+ import { InsufficientStockError } from "../src/errors.js";
+-import { placeOrder } from "../src/orders.js";
++import { placeOrder, receipt } from "../src/orders.js";
+ 
+ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+@@ -35,3 +35,34 @@ test("an order that cannot be fully stocked is refused before anything is priced
+     InsufficientStockError,
+   );
+ });
++
++const sampleOrder = {
++  lines: [
++    { sku: "MUG", quantity: 2 },
++    { sku: "DESK", quantity: 1 },
++  ],
++  subtotal: 27400,
++  discount: 500,
++  tax: 1950,
++  shipping: { tier: "freight-express", cost: 5400 },
++  total: 34250,
++};
++
++test("a receipt lists each line, the discount, and every amount as currency", () => {
++  assert.equal(
++    receipt(sampleOrder, "USD"),
++    [
++      "MUG x2",
++      "DESK x1",
++      "Subtotal: USD 274.00",
++      "Discount: USD 5.00",
++      "Tax: USD 19.50",
++      "Shipping (freight-express): USD 54.00",
++      "Total: USD 342.50",
++    ].join("\n"),
++  );
++});
++
++test("a receipt omits the discount line when the order has no discount", () => {
++  assert.doesNotMatch(receipt({ ...sampleOrder, discount: 0 }, "USD"), /Discount/);
++});

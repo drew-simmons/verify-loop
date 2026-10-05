@@ -1,0 +1,171 @@
+{
+  "results": [
+    {
+      "id": "has-readme",
+      "kind": "exists",
+      "level": "error",
+      "description": "The repository explains itself",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "has-tests",
+      "kind": "exists",
+      "level": "error",
+      "description": "There is a test suite to measure coverage against",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-env-file",
+      "kind": "absent",
+      "level": "error",
+      "description": "Secrets never live in the tree",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-console",
+      "kind": "forbid",
+      "level": "error",
+      "description": "Library code does not print; callers decide what to log",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "library-does-no-io",
+      "kind": "forbid",
+      "level": "error",
+      "description": "The library is pure; the caller owns time, files, and the network",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-empty-catch",
+      "kind": "forbid",
+      "level": "error",
+      "description": "Errors are handled or passed up, never swallowed",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-eval",
+      "kind": "forbid",
+      "level": "error",
+      "description": "No code is built from strings",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-nested-ternary",
+      "kind": "forbid",
+      "level": "error",
+      "description": "One decision per expression",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-default-export",
+      "kind": "forbid",
+      "level": "error",
+      "description": "Named exports are greppable and refactorable",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "exports-are-documented",
+      "kind": "require",
+      "level": "error",
+      "description": "Every exported function has a doc comment above it",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-loose-equality",
+      "kind": "forbid",
+      "level": "error",
+      "description": "Strict comparison only",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-var",
+      "kind": "forbid",
+      "level": "error",
+      "description": "Block-scoped bindings only",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "no-orphan-todos",
+      "kind": "forbid",
+      "level": "error",
+      "description": "Every TODO cites an issue",
+      "status": "pass",
+      "findings": []
+    },
+    {
+      "id": "names-reveal-intent",
+      "kind": "standard",
+      "level": "warn",
+      "description": "Every name says what the thing is or does",
+      "status": "skip",
+      "findings": []
+    },
+    {
+      "id": "functions-do-one-thing",
+      "kind": "standard",
+      "level": "warn",
+      "description": "Every function does one thing at one level of abstraction",
+      "status": "skip",
+      "findings": []
+    },
+    {
+      "id": "guard-clauses-over-nesting",
+      "kind": "standard",
+      "level": "warn",
+      "description": "The main path reads straight down",
+      "status": "skip",
+      "findings": []
+    },
+    {
+      "id": "errors-are-handled-not-hidden",
+      "kind": "standard",
+      "level": "warn",
+      "description": "Every failure is handled or passed up with context",
+      "status": "skip",
+      "findings": []
+    },
+    {
+      "id": "dependencies-are-injected",
+      "kind": "standard",
+      "level": "warn",
+      "description": "Logic can be tested without the outside world",
+      "status": "skip",
+      "findings": []
+    },
+    {
+      "id": "tests-describe-behavior",
+      "kind": "standard",
+      "level": "warn",
+      "description": "Every test reads as a specification",
+      "status": "skip",
+      "findings": []
+    }
+  ],
+  "summary": {
+    "passed": 13,
+    "failed": 0,
+    "warned": 0,
+    "errored": 0,
+    "skipped": 6,
+    "usage": {
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "requests": 0,
+      "cached": 0
+    }
+  }
+}

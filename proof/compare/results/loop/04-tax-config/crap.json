@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/drew-simmons/poly-crap/main/schemas/report-v1.json",
+  "version": "0.8.1",
+  "entries": [],
+  "diagnostics": {
+    "candidate_files": 1,
+    "parsed_files": 1,
+    "analyzed_files": 0,
+    "coverage_files": 0,
+    "matched_files": 0,
+    "source_only_count": 0,
+    "coverage_only_count": 0,
+    "warning_count": 0,
+    "source_only_examples": [],
+    "coverage_only_examples": [],
+    "warnings": []
+  }
+}

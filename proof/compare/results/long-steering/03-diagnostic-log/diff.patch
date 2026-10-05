@@ -1,0 +1,38 @@
+diff --git a/src/errors.js b/src/errors.js
+index 2d68b56..1de5f48 100644
+--- a/src/errors.js
++++ b/src/errors.js
+@@ -14,10 +14,13 @@ export class NotFoundError extends Error {
+   }
+ }
+ 
+-/** The warehouse holds fewer units than the order needs. */
++/** The warehouse holds fewer units than the order needs. Carries sku, wanted and available for the caller to log. */
+ export class InsufficientStockError extends Error {
+   constructor(sku, wanted, available) {
+     super(`only ${available} of "${sku}" in stock, ${wanted} wanted; reduce the quantity or restock`);
+     this.name = "InsufficientStockError";
++    this.sku = sku;
++    this.wanted = wanted;
++    this.available = available;
+   }
+ }
+diff --git a/test/inventory.test.js b/test/inventory.test.js
+index e4427b1..cd5068b 100644
+--- a/test/inventory.test.js
++++ b/test/inventory.test.js
+@@ -14,6 +14,14 @@ test("reserving more than is in stock fails and names the shortfall", () => {
+   assert.throws(() => reserve({}, "PEN", 1), InsufficientStockError);
+ });
+ 
++test("a failed reservation records the sku, quantity wanted and quantity available", () => {
++  assert.throws(() => reserve({ MUG: 2 }, "MUG", 5), {
++    sku: "MUG",
++    wanted: 5,
++    available: 2,
++  });
++});
++
+ test("releasing adds stock, even for a sku never seen before", () => {
+   assert.deepEqual(release({ MUG: 1 }, "MUG", 2), { MUG: 3 });
+   assert.deepEqual(release({}, "PEN", 4), { PEN: 4 });

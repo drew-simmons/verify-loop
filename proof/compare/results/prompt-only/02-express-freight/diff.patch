@@ -1,0 +1,53 @@
+diff --git a/src/shipping.js b/src/shipping.js
+index 57200e4..b9d72f6 100644
+--- a/src/shipping.js
++++ b/src/shipping.js
+@@ -24,19 +24,25 @@ export function weightTier(weightKg) {
+   return "standard";
+ }
+ 
+-/** The weight tier plus "intl" and "express" suffixes, joined with dashes. */
++/**
++ * The weight tier plus "intl" and "express" suffixes, joined with dashes.
++ * International parcels over 20 kg put "express" before "intl".
++ */
+ export function shippingTier(weightKg, zone, express) {
+   if (!(weightKg > 0)) {
+     throw new ValidationError("weightKg", "greater than zero");
+   }
+-  const parts = [weightTier(weightKg)];
++  const suffixes = [];
+   if (zone === "international") {
+-    parts.push("intl");
++    suffixes.push("intl");
+   }
+   if (express) {
+-    parts.push("express");
++    suffixes.push("express");
+   }
+-  return parts.join("-");
++  if (weightKg > 20) {
++    suffixes.reverse();
++  }
++  return [weightTier(weightKg), ...suffixes].join("-");
+ }
+ 
+ /** The cost in cents of a tier string such as "heavy-intl-express". */
+diff --git a/test/shipping.test.js b/test/shipping.test.js
+index dfccb70..df7938a 100644
+--- a/test/shipping.test.js
++++ b/test/shipping.test.js
+@@ -20,9 +20,13 @@ test("domestic parcels carry only their weight tier", () => {
+ test("international and express add suffixes in that order", () => {
+   assert.equal(shippingTier(6, "international", true), "heavy-intl-express");
+   assert.equal(shippingTier(25, "international", false), "freight-intl");
++  assert.equal(shippingTier(25, "international", true), "freight-express-intl");
++  assert.equal(shippingTier(25, "domestic", true), "freight-express");
++  assert.equal(shippingTier(20, "international", true), "heavy-intl-express");
+ });
+ 
+ test("shipping cost is the tier's flat cost plus each surcharge", () => {
+   assert.equal(shippingCost("standard"), 500);
+   assert.equal(shippingCost("heavy-intl-express"), 1200 + 1500 + 900);
++  assert.equal(shippingCost("freight-express-intl"), 4500 + 900 + 1500);
+ });

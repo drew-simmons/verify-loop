@@ -1,12 +1,41 @@
 diff --git a/src/inventory.js b/src/inventory.js
-index d2a313a..4ea0b29 100644
+index d2a313a..2f98bde 100644
 --- a/src/inventory.js
 +++ b/src/inventory.js
-@@ -6,6 +6,7 @@ export function reserve(stock, sku, quantity) {
+@@ -1,11 +1,15 @@
+ import { InsufficientStockError } from "./errors.js";
+ import { assertPositiveInteger } from "./validate.js";
+ 
+-/** A new stock map with quantity fewer of a sku, or an InsufficientStockError. */
+-export function reserve(stock, sku, quantity) {
++/**
++ * A new stock map with quantity fewer of a sku, or an InsufficientStockError.
++ * A shortfall is first logged as one JSON line of sku, wanted, and available, through `log`.
++ */
++export function reserve(stock, sku, quantity, log = console.warn) {
    assertPositiveInteger("quantity", quantity);
    const available = stock[sku] ?? 0;
    if (available < quantity) {
-+    console.warn(JSON.stringify({ event: "reserve_failed", sku, wanted: quantity, available }));
++    log(JSON.stringify({ event: "reserve-insufficient-stock", sku, wanted: quantity, available }));
      throw new InsufficientStockError(sku, quantity, available);
    }
    return { ...stock, [sku]: available - quantity };
+diff --git a/test/inventory.test.js b/test/inventory.test.js
+index e4427b1..dfe78fc 100644
+--- a/test/inventory.test.js
++++ b/test/inventory.test.js
+@@ -14,6 +14,14 @@ test("reserving more than is in stock fails and names the shortfall", () => {
+   assert.throws(() => reserve({}, "PEN", 1), InsufficientStockError);
+ });
+ 
++test("a failed reservation logs the sku, quantity wanted, and quantity available", () => {
++  const lines = [];
++  assert.throws(() => reserve({ MUG: 2 }, "MUG", 5, (line) => lines.push(line)), InsufficientStockError);
++  assert.deepEqual(lines.map((line) => JSON.parse(line)), [
++    { event: "reserve-insufficient-stock", sku: "MUG", wanted: 5, available: 2 },
++  ]);
++});
++
+ test("releasing adds stock, even for a sku never seen before", () => {
+   assert.deepEqual(release({ MUG: 1 }, "MUG", 2), { MUG: 3 });
+   assert.deepEqual(release({}, "PEN", 4), { PEN: 4 });

@@ -1,0 +1,107 @@
+diff --git a/src/pricing.js b/src/pricing.js
+index b00e393..d1d1d18 100644
+--- a/src/pricing.js
++++ b/src/pricing.js
+@@ -1,6 +1,6 @@
+ import { findProduct } from "./catalog.js";
+ import { lines } from "./cart.js";
+-import { add, percentOf } from "./money.js";
++import { add, cents, percentOf } from "./money.js";
+ 
+ /** Each discount code is a function from a subtotal to the cents it takes off. */
+ const DISCOUNTS = {
+@@ -8,6 +8,13 @@ const DISCOUNTS = {
+   FLAT500: (subtotal) => Math.min(500, subtotal),
+ };
+ 
++const CENTS_PER_DOLLAR = 100;
++const EXPRESS_BONUS_POINTS = 50;
++const GOLD_MEMBERSHIP = "gold";
++
++/** Points earned per whole dollar by membership; anyone else earns one. */
++const POINTS_PER_DOLLAR = { silver: 2, gold: 3 };
++
+ /** Sum of each line's quantity times its catalog price, in cents. */
+ export function subtotal(cartLines, catalog) {
+   let sum = 0;
+@@ -23,6 +30,24 @@ export function discountFor(amount, code) {
+   return discount === undefined ? 0 : discount(amount);
+ }
+ 
++/** Gold members keep all their points; everyone else loses half when a discount was taken. */
++function halvesPoints(membership, discountCents) {
++  return discountCents > 0 && membership !== GOLD_MEMBERSHIP;
++}
++
++/**
++ * Whole loyalty points an order earns: per whole dollar of netCents by
++ * membership ("silver", "gold", or anything else for standard), plus a flat
++ * bonus for express shipping, halved (rounded down) when discountCents is
++ * above zero unless the member is gold.
++ */
++export function loyaltyPoints({ netCents, membership, express, discountCents }) {
++  const wholeDollars = Math.floor(cents(netCents) / CENTS_PER_DOLLAR);
++  const multiplier = POINTS_PER_DOLLAR[membership] ?? 1;
++  const earned = wholeDollars * multiplier + (express ? EXPRESS_BONUS_POINTS : 0);
++  return halvesPoints(membership, discountCents) ? Math.floor(earned / 2) : earned;
++}
++
+ /** Subtotal and discount for a cart against a catalog. */
+ export function priceCart(cart, catalog, code) {
+   const base = subtotal(lines(cart), catalog);
+diff --git a/test/pricing.test.js b/test/pricing.test.js
+index c7af054..739a139 100644
+--- a/test/pricing.test.js
++++ b/test/pricing.test.js
+@@ -2,7 +2,7 @@ import { test } from "node:test";
+ import assert from "node:assert/strict";
+ import { addItem, emptyCart } from "../src/cart.js";
+ import { createCatalog } from "../src/catalog.js";
+-import { discountFor, priceCart, subtotal } from "../src/pricing.js";
++import { discountFor, loyaltyPoints, priceCart, subtotal } from "../src/pricing.js";
+ 
+ const catalog = createCatalog([
+   { sku: "MUG", name: "Mug", priceCents: 1250, weightKg: 0.4 },
+@@ -34,3 +34,42 @@ test("an unknown code takes nothing off", () => {
+ test("pricing a cart reports subtotal, discount, and the net", () => {
+   assert.deepEqual(priceCart(cart, catalog, "FLAT500"), { subtotal: 2800, discount: 500, net: 2300 });
+ });
++
++const standardOrder = { netCents: 2599, membership: "standard", express: false, discountCents: 0 };
++
++test("a standard member earns one point per whole dollar, ignoring leftover cents", () => {
++  assert.equal(loyaltyPoints(standardOrder), 25);
++});
++
++test("a silver member earns double points", () => {
++  assert.equal(loyaltyPoints({ ...standardOrder, membership: "silver" }), 50);
++});
++
++test("a gold member earns triple points", () => {
++  assert.equal(loyaltyPoints({ ...standardOrder, membership: "gold" }), 75);
++});
++
++test("express shipping adds a 50 point bonus", () => {
++  assert.equal(loyaltyPoints({ ...standardOrder, express: true }), 75);
++});
++
++test("a discount halves a silver member's points including the bonus", () => {
++  const order = { ...standardOrder, membership: "silver", express: true, discountCents: 500 };
++  assert.equal(loyaltyPoints(order), 50);
++});
++
++test("a discount halves points rounding down to a whole number", () => {
++  assert.equal(loyaltyPoints({ ...standardOrder, netCents: 2300, discountCents: 500 }), 11);
++});
++
++test("a gold member keeps all points when a discount was taken", () => {
++  assert.equal(loyaltyPoints({ ...standardOrder, membership: "gold", discountCents: 500 }), 75);
++});
++
++test("an order under one dollar earns no points", () => {
++  assert.equal(loyaltyPoints({ ...standardOrder, netCents: 99 }), 0);
++});
++
++test("a negative net amount is rejected", () => {
++  assert.throws(() => loyaltyPoints({ ...standardOrder, netCents: -1 }), /amount/);
++});
