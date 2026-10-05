@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/drew-simmons/lawbook/main/lawbook.schema.json
+#
+# Rules the verify loop checks on every change. Deterministic rules always
+# run. The one `standard` rule costs a model request per changed test file
+# and runs only when verify.sh is opted in (AWS_REGION set, Bedrock
+# credentials in the environment) and every deterministic stage is green.
+version: 1
+
+llm:
+  provider: bedrock
+  maxRequests: 20
+
+rules:
+  - id: has-readme
+    description: The repository explains itself
+    exists: ["README.md"]
+
+  - id: has-tests
+    description: There is a test suite to measure coverage against
+    exists: ["test/**/*.test.js"]
+
+  - id: no-console
+    description: Library code does not print; callers decide what to log
+    files: ["src/**/*.js"]
+    forbid: 'console\.'
+    message: remove the console call; return or throw instead
+
+  - id: todo-needs-issue
+    description: A TODO names the issue that tracks it
+    files: ["src/**/*.js", "test/**/*.js"]
+    forbid: 'TODO(?!\(#\d+\))'
+    message: write TODO(#123) with the issue that tracks it
+
+  - id: tests-describe-behavior
+    description: Test names say what the code does, not how
+    level: warn
+    files: ["test/**/*.test.js"]
+    threshold: 0.6
+    standard: |
+      Every test name states an observable behaviour of the code under test
+      in plain language, such as "rejects a negative quantity". A name that
+      only repeats a function name or says "works" does not meet the standard.

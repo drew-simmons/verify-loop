@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.claude/skills/verify/scripts/verify.sh *)",
+      "Bash(sh .claude/skills/verify/scripts/verify.sh *)",
+      "Bash(./demo.sh)",
+      "Bash(sh demo.sh)",
+      "Bash(npm run *)",
+      "Bash(npm test)",
+      "Bash(node --test *)",
+      "Bash(node --check *)",
+      "Bash(poly-crap *)",
+      "Bash(lawbook check *)",
+      "Bash(lawbook test *)",
+      "Bash(hunk session *)",
+      "Bash(hunk skill path)",
+      "Bash(jq *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-stop.sh",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
