@@ -148,7 +148,7 @@ spent on code that is about to change anyway, and only when you opt in:
 
 | Setting | Effect |
 | --- | --- |
-| `AWS_REGION=us-east-1` | runs the stage with Sonnet 5.5 on Bedrock (`anthropic.claude-sonnet-5-5`, set in `lawbook.yaml`) |
+| `AWS_REGION=us-east-1` | runs the stage on Bedrock with the judge named in `lawbook.yaml`: Haiku 4.5, Sonnet 5.5 on two standards |
 | `VERIFY_LLM=1` / `VERIFY_LLM=0` | forces the stage on, or off, whatever the region says |
 | `MAX_REQUESTS=20` | lawbook stops before the first request when a run would exceed it |
 | `LAWBOOK_CONFIG=lawbook.stub.yaml` | judges with the local stub instead of a model |
@@ -166,6 +166,31 @@ changed source file costs five requests (one per standard that selects it), a
 changed test file one. lawbook caches verdicts by model, standard, path, and
 content, so a rerun on untouched files costs nothing, and the usage line after
 each run says how many requests were served from the cache.
+
+### Which model judges
+
+The judge and the session model are different jobs. A verdict is a bounded
+question on one file with a fixed prompt and a JSON answer, and a wrong verdict
+only warns, is cached, and shows up in the fixtures. The session model reads
+the reason and changes code, where a mistake costs turns. So the judge is the
+small, fast model and the session model is the strong one: `lawbook.yaml`
+names Haiku 4.5 as the judge, with Sonnet 5.5 overriding it on the two
+standards that need the most judgment, `functions-do-one-thing` and
+`dependencies-are-injected`. Claude Code stays on its default model.
+
+The arithmetic says the judge's price barely matters. A changed source file
+is five requests of a few thousand tokens each, well under a cent on Haiku
+and about a cent on Sonnet, against a session that costs dollars. What
+matters is the judge's latency, because stage 5 sits in the loop, and its
+false-fail rate, because a false "fail" costs a strong-model turn that
+outweighs anything the cheaper judge saved. The per-rule override is the
+knob for that, and `proof/judge-agreement.sh` is the evidence for setting
+it: it judges the fixtures and the seven model scenarios under both judges
+and prints the disagreements per standard.
+
+Any OpenAI-compatible endpoint that supports JSON-schema output can be the
+judge through lawbook's `openai` provider and a `baseUrl`, which is how
+`lawbook.stub.yaml` plugs in the stub and how a non-Anthropic judge would.
 
 ### The fixtures: does the judge agree with a human?
 

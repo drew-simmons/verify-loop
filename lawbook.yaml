@@ -8,9 +8,14 @@
 # pass and a fail fixture under proof/fixtures/ that `lawbook test` judges.
 version: 1
 
+# The judge is a small, fast model: each verdict is a bounded question on one
+# file with a fixed prompt, and a wrong one only warns. The session model that
+# reads the reason and fixes the code is the strong one. Two standards that
+# need more judgment override the judge below; proof/judge-agreement.sh is the
+# evidence for keeping or dropping those overrides.
 llm:
   provider: bedrock
-  model: anthropic.claude-sonnet-5-5
+  model: anthropic.claude-haiku-4-5
   maxRequests: 20
 
 rules:
@@ -111,6 +116,7 @@ rules:
   - id: functions-do-one-thing
     description: Every function does one thing at one level of abstraction
     level: warn
+    llm: { model: anthropic.claude-sonnet-5-5 }
     fixtures:
       pass: ["proof/fixtures/functions-do-one-thing/pass.js"]
       fail: ["proof/fixtures/functions-do-one-thing/fail.js"]
@@ -155,6 +161,7 @@ rules:
   - id: dependencies-are-injected
     description: Logic can be tested without the outside world
     level: warn
+    llm: { model: anthropic.claude-sonnet-5-5 }
     fixtures:
       pass: ["proof/fixtures/dependencies-are-injected/pass.js"]
       fail: ["proof/fixtures/dependencies-are-injected/fail.js"]

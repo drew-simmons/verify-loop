@@ -18,7 +18,8 @@ sh proof/prove.sh                          # 11 scenarios, each caught or passed
 sh proof/bench.sh                          # stage-by-stage timings
 sh proof/scale.sh 10 50 200                # timings as the codebase grows
 sh proof/prove-llm.sh --stub               # the model stage end to end, no credentials
-AWS_REGION=us-east-1 sh proof/prove-llm.sh # the same with Sonnet 5.5 on Bedrock
+AWS_REGION=us-east-1 sh proof/prove-llm.sh # the same on Bedrock with the judge in lawbook.yaml
+AWS_REGION=us-east-1 sh proof/judge-agreement.sh   # Haiku vs Sonnet as judge, per standard
 sh proof/compare/compare.sh [A|B|C] [--tasks 01,05] [--model claude-haiku-4-5]   # headless Claude Code under three setups, scored by the gate
 sh proof/compare/report.sh                 # the comparison table from the results
 lawbook check . --no-llm                   # the clean-code rules alone
@@ -51,8 +52,10 @@ replace `if` chains. One test file per module in `test/`.
   doc comment on every export, an issue on every TODO. Read it before
   arguing with a finding.
 - The deterministic loop never needs network access or credentials. The six
-  prose standards in `lawbook.yaml` are judged by Sonnet 5.5 on Bedrock, opt
-  in through `AWS_REGION` plus credentials, and only warn. Each has pass and
+  prose standards in `lawbook.yaml` are judged on Bedrock by Haiku 4.5, with
+  Sonnet 5.5 on the two standards that need the most judgment; opt in
+  through `AWS_REGION` plus credentials; they only warn. The session model
+  stays the strong one: the judge answers, the session fixes. Each has pass and
   fail fixtures under `proof/fixtures/`; `lawbook test` checks the judge
   still agrees with them.
 - When a scenario in `proof/scenarios/` stops being caught, the loop has a
