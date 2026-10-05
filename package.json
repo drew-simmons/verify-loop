@@ -4,11 +4,16 @@
   "private": true,
   "description": "A worked example of a fast verification loop for Claude Code: poly-crap, lawbook, and Hunk on the same diff",
   "type": "module",
-  "engines": { "node": ">=22.12" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "test": "node --test",
-    "coverage": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude='test/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info",
     "verify": "sh .claude/skills/verify/scripts/verify.sh",
-    "demo": "sh demo.sh"
+    "demo": "sh demo.sh",
+    "prove": "sh proof/prove.sh",
+    "bench": "sh proof/bench.sh",
+    "scale": "sh proof/scale.sh"
   }
 }

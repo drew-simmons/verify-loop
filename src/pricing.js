@@ -1,26 +1,31 @@
-/** Sum of quantity × unit price, in cents. */
-export function subtotal(items) {
+import { findProduct } from "./catalog.js";
+import { lines } from "./cart.js";
+import { add, percentOf } from "./money.js";
+
+/** Each discount code is a function from a subtotal to the cents it takes off. */
+const DISCOUNTS = {
+  SAVE10: (subtotal) => percentOf(subtotal, 0.1),
+  FLAT500: (subtotal) => Math.min(500, subtotal),
+};
+
+/** Sum of each line's quantity times its catalog price, in cents. */
+export function subtotal(cartLines, catalog) {
   let sum = 0;
-  for (const item of items) {
-    sum += item.quantity * item.unitPrice;
+  for (const line of cartLines) {
+    sum = add(sum, findProduct(catalog, line.sku).priceCents * line.quantity);
   }
   return sum;
 }
 
-/** The discount in cents a code earns on an amount. Unknown codes earn nothing. */
-export function discount(amount, code) {
-  if (code === "SAVE10") {
-    return Math.round(amount * 0.1);
-  }
-  if (code === "FLAT500") {
-    return Math.min(500, amount);
-  }
-  return 0;
+/** The cents a discount code takes off a subtotal. Unknown codes take nothing. */
+export function discountFor(amount, code) {
+  const discount = DISCOUNTS[code];
+  return discount === undefined ? 0 : discount(amount);
 }
 
-/** Subtotal less discount, plus tax on the remainder, in cents. */
-export function total(items, code, taxRate) {
-  const base = subtotal(items);
-  const taxed = base - discount(base, code);
-  return taxed + Math.round(taxed * taxRate);
+/** Subtotal and discount for a cart against a catalog. */
+export function priceCart(cart, catalog, code) {
+  const base = subtotal(lines(cart), catalog);
+  const discount = discountFor(base, code);
+  return { subtotal: base, discount, net: base - discount };
 }

@@ -50,9 +50,39 @@ record() {
   [ "$rc" -gt "$status" ] && status=$rc
   return 0
 }
-stage() { printf '\n%s %s\n' '▸' "$1"; }
+now_ms() {
+  ns=$(date +%s%N 2>/dev/null)
+  case $ns in *N*|"") echo "$(($(date +%s) * 1000))" ;; *) echo "$((ns / 1000000))" ;; esac
+}
+T0=$(now_ms)
+STAGE_T=
+stage() {
+  took
+  printf '\n%s %s\n' '▸' "$1"
+  STAGE_T=$(now_ms)
+}
+took() {
+  [ -n "${STAGE_T:-}" ] && printf '  took %s ms\n' "$(($(now_ms) - STAGE_T))"
+}
 skip() { printf '  skipped: %s\n' "$1"; }
 missing() { printf '  %s is not installed; run .claude/hooks/session-start.sh\n' "$1"; record 2; }
+
+# Hunk's CLI takes half a second to start, so ask it only when a Hunk process
+# is running at all. HUNK=0 skips the live session entirely.
+hunk_session_open() {
+  [ "${HUNK:-1}" != "0" ] || return 1
+  command -v hunk >/dev/null 2>&1 || return 1
+  if command -v pgrep >/dev/null 2>&1; then
+    pgrep -f 'hunk (diff|show|gh|patch|log)' >/dev/null 2>&1 || return 1
+  fi
+  hunk session get --repo . >/dev/null 2>&1
+}
+
+# --diff-base scores only functions in changed source files, so a deleted or
+# edited test is invisible to it. A change under test/ scores everything.
+tests_changed() {
+  [ -n "$(git diff --name-only "$MERGE_BASE" -- test; git ls-files --others --exclude-standard -- test)" ]
+}
 
 lawbook_summary() {
   jq -r '
@@ -68,12 +98,16 @@ lawbook_summary() {
 
 echo "verify: $BASE..working tree (merge base ${MERGE_BASE%"${MERGE_BASE#???????}"})"
 
-stage "1  syntax (node --check)"
-for f in src/*.js test/*.js; do
-  [ -f "$f" ] || continue
-  node --check "$f" || record $?
-done
-echo "  ok"
+stage "1  syntax (node --check on changed files)"
+CHANGED_JS=$( { git diff --name-only --diff-filter=d "$MERGE_BASE" -- 'src/*.js' 'test/*.js'; git ls-files --others --exclude-standard -- 'src/*.js' 'test/*.js'; } | sort -u)
+if [ -z "$CHANGED_JS" ]; then
+  echo "  no changed JavaScript files"
+else
+  for f in $CHANGED_JS; do
+    node --check "$f" || record $?
+  done
+  echo "  $(printf '%s\n' "$CHANGED_JS" | wc -l | tr -d ' ') file(s) ok"
+fi
 
 stage "2  lawbook, deterministic rules on changed files"
 if ! command -v lawbook >/dev/null 2>&1; then missing lawbook
@@ -95,7 +129,13 @@ elif [ ! -f lcov.info ]; then
   echo "  no lcov.info; the test run did not produce coverage"
   record 2
 else
-  poly-crap --diff-base "$BASE" --coverage lcov.info --threshold "$THRESHOLD" --fail-above \
+  if tests_changed; then
+    echo "  full scan: test files changed, so every function is scored"
+    set -- --path .
+  else
+    set -- --diff-base "$BASE"
+  fi
+  poly-crap "$@" --coverage lcov.info --threshold "$THRESHOLD" --fail-above \
     --format json --output "$OUT/crap.json"
   record $?
   jq -r --argjson t "$THRESHOLD" '
@@ -126,7 +166,7 @@ jq -s --argjson t "$THRESHOLD" --arg format session -f "$HERE/to-hunk.jq" \
 jq -s --argjson t "$THRESHOLD" --arg format sidecar -f "$HERE/to-hunk.jq" \
   "$OUT/crap.json" "$OUT/lawbook.json" >"$OUT/notes.json"
 COUNT=$(jq '.comments | length' "$OUT/comments.json")
-if command -v hunk >/dev/null 2>&1 && hunk session get --repo . >/dev/null 2>&1; then
+if hunk_session_open; then
   hunk session comment clear --repo . --yes >/dev/null 2>&1
   if [ "$COUNT" -gt 0 ]; then
     hunk session comment apply --repo . --stdin <"$OUT/comments.json" >/dev/null
@@ -137,10 +177,12 @@ else
   echo "  open it with: hunk diff --agent-notes --agent-context $OUT/notes.json"
 fi
 
+took
+TOTAL=$(($(now_ms) - T0))
 echo
 case $status in
-  0) printf '%s' "$STAMP" >"$OUT/green"; echo "verify: clean ($STAMP)" ;;
-  1) echo "verify: $COUNT finding(s). Fix only what is named above, then run again." ;;
+  0) printf '%s' "$STAMP" >"$OUT/green"; echo "verify: clean ($STAMP) in $TOTAL ms" ;;
+  1) echo "verify: $COUNT finding(s) in $TOTAL ms. Fix only what is named above, then run again." ;;
   *) echo "verify: could not run (exit 2). Fix the setup, not the code." ;;
 esac
 exit "$status"
