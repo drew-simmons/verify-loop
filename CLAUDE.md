@@ -18,8 +18,8 @@ sh proof/prove.sh                          # 11 scenarios, each caught or passed
 sh proof/bench.sh                          # stage-by-stage timings
 sh proof/scale.sh 10 50 200                # timings as the codebase grows
 sh proof/prove-llm.sh --stub               # the model stage end to end, no credentials
-AWS_REGION=us-east-1 sh proof/prove-llm.sh # the same on Bedrock with the judge in lawbook.yaml
-AWS_REGION=us-east-1 sh proof/judge-agreement.sh   # Haiku vs Sonnet as judge, per standard
+sh proof/prove-llm.sh                      # the same on Bedrock through the Bifrost gateway, with the judge in lawbook.yaml
+sh proof/judge-agreement.sh                # Haiku vs Sonnet as judge, per standard
 sh proof/compare/compare.sh [A|B|C] [--tasks 01,05] [--model claude-haiku-4-5]   # headless Claude Code under three setups, scored by the gate
 sh proof/compare/report.sh                 # the comparison table from the results
 lawbook check . --no-llm                   # the clean-code rules alone
@@ -30,8 +30,9 @@ lawbook test .                             # the prose standards against their f
 runs it again at the end of every turn that changed something and blocks the
 turn with the findings while the change is red. `BASE=<ref>` changes the base
 from `origin/main`; `HUNK=0` skips the live Hunk session; `VERIFY_LLM=1|0`
-forces or skips the model stage, which otherwise runs when `AWS_REGION` is
-set; `LAWBOOK_CONFIG=lawbook.stub.yaml` judges with `proof/stub-judge.mjs`.
+forces or skips the model stage, which otherwise runs when a Bifrost gateway
+answers at `BIFROST_URL` (default `http://localhost:8080`);
+`LAWBOOK_CONFIG=lawbook.stub.yaml` judges with `proof/stub-judge.mjs`.
 
 `/add-module <name> <what it decides>` scaffolds `src/<name>.js` and its test
 in the shape of `shipping.js` and ends by running `/verify`. `/polish` runs
@@ -60,8 +61,10 @@ replace `if` chains. One test file per module in `test/`.
   arguing with a finding.
 - The deterministic loop never needs network access or credentials. The six
   prose standards in `lawbook.yaml` are judged on Bedrock by Haiku 4.5, with
-  Sonnet 5.5 on the two standards that need the most judgment; opt in
-  through `AWS_REGION` plus credentials; they only warn. The session model
+  Sonnet 5.5 on the two standards that need the most judgment, through a
+  Bifrost gateway that `session-start.sh` starts and configures from
+  `AWS_REGION` plus credentials; lawbook holds no credentials, and the model
+  ids carry the `bedrock/` prefix. They only warn. The session model
   stays the strong one: the judge answers, the session fixes. Each has pass and
   fail fixtures under `proof/fixtures/`; `lawbook test` checks the judge
   still agrees with them.

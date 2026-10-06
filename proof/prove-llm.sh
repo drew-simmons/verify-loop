@@ -1,10 +1,11 @@
 #!/usr/bin/env sh
 # The model proof: the prose standards in lawbook.yaml, judged by a model on
-# Bedrock, catch what no regex can, agree with a human on the fixtures, pass a
-# clean change, and cost nothing on a rerun. With --stub the judge is
-# proof/stub-judge.mjs, so the same plumbing runs with no credentials.
+# Bedrock through the Bifrost gateway, catch what no regex can, agree with a
+# human on the fixtures, pass a clean change, and cost nothing on a rerun.
+# With --stub the judge is proof/stub-judge.mjs, so the same plumbing runs
+# with no credentials and no gateway.
 #
-#   AWS_REGION=us-east-1 sh proof/prove-llm.sh
+#   sh proof/prove-llm.sh            # with the gateway session-start.sh started
 #   sh proof/prove-llm.sh --stub
 set -u
 
@@ -33,11 +34,12 @@ if [ "${1:-}" = "--stub" ]; then
   judge="stub judge"
 else
   export LAWBOOK_CONFIG=${LAWBOOK_CONFIG:-lawbook.yaml} MARKER=""
-  if [ -z "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}" ]; then
-    echo "prove-llm: set AWS_REGION (and Bedrock credentials), or pass --stub" >&2
+  BIFROST_URL=${BIFROST_URL:-http://localhost:8080}
+  if ! curl -fsS -m 2 -o /dev/null "$BIFROST_URL/health" 2>/dev/null; then
+    echo "prove-llm: no Bifrost gateway answers at $BIFROST_URL; set AWS_REGION and Bedrock credentials and run the SessionStart hook, or pass --stub" >&2
     exit 2
   fi
-  judge="Bedrock, $(sed -n 's/^  model: //p' lawbook.yaml), ${AWS_REGION:-$AWS_DEFAULT_REGION}"
+  judge="Bifrost at $BIFROST_URL, $(sed -n 's/^  model: //p' lawbook.yaml)${AWS_REGION:+, $AWS_REGION}"
 fi
 
 restore() { git checkout -q -- src test; git clean -fdq -- src test; }

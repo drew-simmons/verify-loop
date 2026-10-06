@@ -54,7 +54,7 @@ The deterministic rules always run and cost milliseconds:
 
 Six prose standards adapted from lawbook's
 [clean-code example](https://github.com/drew-simmons/lawbook/blob/main/examples/clean-code.lawbook.yaml)
-run at `level: warn` when `AWS_REGION` is set for Bedrock: names reveal
+run at `level: warn` when a Bifrost gateway to Bedrock is up: names reveal
 intent, functions do one thing, guard clauses over nesting, errors are
 handled not hidden, dependencies are injected, tests describe behaviour.
 They cost one model request per changed file and never run on a tree that
@@ -148,18 +148,23 @@ spent on code that is about to change anyway, and only when you opt in:
 
 | Setting | Effect |
 | --- | --- |
-| `AWS_REGION=us-east-1` | runs the stage on Bedrock with the judge named in `lawbook.yaml`: Haiku 4.5, Sonnet 5.5 on two standards |
-| `VERIFY_LLM=1` / `VERIFY_LLM=0` | forces the stage on, or off, whatever the region says |
+| `AWS_REGION=us-east-1` plus credentials | the SessionStart hook starts a [Bifrost](https://github.com/maximhq/bifrost) gateway at `http://localhost:8080` with that Bedrock key, and the stage runs on Bedrock with the judge named in `lawbook.yaml`: Haiku 4.5, Sonnet 5.5 on two standards |
+| `VERIFY_LLM=1` / `VERIFY_LLM=0` | forces the stage on, or off, whether or not a gateway answers |
 | `MAX_REQUESTS=20` | lawbook stops before the first request when a run would exceed it |
 | `LAWBOOK_CONFIG=lawbook.stub.yaml` | judges with the local stub instead of a model |
 
-Credentials come from the AWS chain, so any one of these works alongside the
-region: `AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key, the simplest), access
-keys, or a profile from `aws configure` or SSO. The identity needs
+Lawbook itself holds no credentials: it speaks Chat Completions to the
+gateway, and the gateway holds the Bedrock key and names the model by its
+`bedrock/` prefix. The hook writes the gateway's config to `.bifrost/` from
+the environment, so any one of these works alongside the region:
+`AWS_BEARER_TOKEN_BEDROCK` (a Bedrock API key, the simplest), access keys, or
+a profile from `aws configure` or SSO. The identity needs
 `bedrock:InvokeModel` and the model must be enabled for the account in that
 region. In a Claude Code cloud session, add the region and the credential as
 environment secrets in the environment's settings; the SessionStart hook
-reports `bedrock ready (us-east-1)` or `bedrock off` in its first line.
+reports `bifrost up (http://localhost:8080, us-east-1)` or `bifrost off` in
+its first line. A gateway running elsewhere needs `BIFROST_URL` for the
+scripts and `baseUrl` under `llm` in `lawbook.yaml` for lawbook.
 
 Before any run, `verify` prints the plan: `3 files, 5 model requests`. A
 changed source file costs five requests (one per standard that selects it), a
@@ -226,13 +231,13 @@ Hunk comment, the cache.
 | 17 | adds giftWrapFee() to pricing with a doc comment and a test | all six | every standard passed | 6 | 2.1s |
 ```
 
-Without `--stub`, the same script runs against Bedrock and the verdicts are
-the model's. The expectations are only "below the threshold" and "above the
+Without `--stub`, the same script runs against Bedrock through the gateway
+and the verdicts are the model's. The expectations are only "below the threshold" and "above the
 threshold", because a probability can move between runs; the fixtures are
 where a drift would show first. Run it yourself:
 
 ```sh
-AWS_REGION=us-east-1 sh proof/prove-llm.sh
+sh proof/prove-llm.sh      # with the gateway the SessionStart hook started
 ```
 
 The build environment for this repository had no Bedrock access, so the
@@ -381,7 +386,7 @@ when `origin/main` does not exist, `main` is used.
 2  lawbook --no-llm              regex and path rules on changed files
 3  node --test with coverage     THE SLOW STEP; writes lcov.info
 4  poly-crap --fail-above        CRAP > 5 in any changed function; every function when a test changed
-5  lawbook standards (model)     only when 1–4 are green and AWS_REGION or VERIFY_LLM=1 is set
+5  lawbook standards (model)     only when 1–4 are green and a Bifrost gateway answers, or VERIFY_LLM=1
 6  findings → Hunk               clear the old comments, apply the new batch, write the sidecar
 ```
 

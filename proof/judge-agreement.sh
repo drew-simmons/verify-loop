@@ -3,7 +3,7 @@
 # two judges, Haiku 4.5 and Sonnet 5.5, with every per-rule override removed,
 # and prints where they disagree with the fixtures and with each other.
 #
-#   AWS_REGION=us-east-1 sh proof/judge-agreement.sh
+#   sh proof/judge-agreement.sh             # with the gateway session-start.sh started
 #   sh proof/judge-agreement.sh --stub      # plumbing only; the stub ignores the model
 set -u
 
@@ -24,11 +24,12 @@ if [ "${1:-}" = "--stub" ]; then
   PROVIDER=stub
 else
   export MARKER=""
-  if [ -z "${AWS_REGION:-${AWS_DEFAULT_REGION:-}}" ]; then
-    echo "judge-agreement: set AWS_REGION (and Bedrock credentials), or pass --stub" >&2
+  BIFROST_URL=${BIFROST_URL:-http://localhost:8080}
+  if ! curl -fsS -m 2 -o /dev/null "$BIFROST_URL/health" 2>/dev/null; then
+    echo "judge-agreement: no Bifrost gateway answers at $BIFROST_URL; set AWS_REGION and Bedrock credentials and run the SessionStart hook, or pass --stub" >&2
     exit 2
   fi
-  PROVIDER=bedrock
+  PROVIDER=bifrost
 fi
 
 restore() { git checkout -q -- src test; git clean -fdq -- src test; }
@@ -47,8 +48,8 @@ provider = sys.argv[1]
 config = yaml.safe_load(open("lawbook.yaml"))
 for rule in config["rules"]:
     rule.pop("llm", None)
-for name, model in [("haiku", "anthropic.claude-haiku-4-5"), ("sonnet", "anthropic.claude-sonnet-5-5")]:
-    llm = {"provider": "bedrock", "model": model, "maxRequests": 200}
+for name, model in [("haiku", "bedrock/anthropic.claude-haiku-4-5"), ("sonnet", "bedrock/anthropic.claude-sonnet-5-5")]:
+    llm = {"provider": "bifrost", "model": model, "maxRequests": 200}
     if provider == "stub":
         llm = {"provider": "openai", "model": model, "baseUrl": "http://127.0.0.1:47391/v1", "maxRequests": 200}
     out = dict(config)
