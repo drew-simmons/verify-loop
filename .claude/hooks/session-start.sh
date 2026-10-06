@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 # SessionStart hook: make sure the loop's three tools exist, fetch the base
 # branch, and tell Claude what is available. Idempotent and never fatal: a
-# session must start even when offline.
+# session must start even when offline. HUNK=0 skips hunk (CI has no TUI).
+# POLY_CRAP_VERSION and LAWBOOK_REF pin the installs; both default to latest.
 set -u
 
 BIN="$HOME/.local/bin"
@@ -10,9 +11,10 @@ export PATH="$BIN:$HOME/.cargo/bin:$PATH"
 log() { echo "verify-loop: $*" >&2; }
 
 if ! command -v poly-crap >/dev/null 2>&1; then
-  log "installing poly-crap"
+  log "installing poly-crap${POLY_CRAP_VERSION:+ $POLY_CRAP_VERSION}"
+  RELEASE=${POLY_CRAP_VERSION:+download/v$POLY_CRAP_VERSION}
   curl --proto '=https' --tlsv1.2 -LsSf \
-    https://github.com/drew-simmons/poly-crap/releases/latest/download/poly-crap-installer.sh \
+    "https://github.com/drew-simmons/poly-crap/releases/${RELEASE:-latest/download}/poly-crap-installer.sh" \
     | sh -s -- --yes >/dev/null 2>&1 || true
 fi
 if ! command -v poly-crap >/dev/null 2>&1 && command -v gh >/dev/null 2>&1; then
@@ -27,17 +29,17 @@ fi
 if ! command -v lawbook >/dev/null 2>&1; then
   log "installing lawbook from source (it is not on npm)"
   TMP=$(mktemp -d)
-  git clone -q --depth 1 https://github.com/drew-simmons/lawbook "$TMP/lawbook" >/dev/null 2>&1 \
+  git clone -q --depth 1 --branch "${LAWBOOK_REF:-main}" https://github.com/drew-simmons/lawbook "$TMP/lawbook" >"$TMP/build.log" 2>&1 \
     && (cd "$TMP/lawbook" \
-        && corepack enable >/dev/null 2>&1 \
-        && pnpm install --frozen-lockfile >/dev/null 2>&1 \
-        && pnpm pack --pack-destination "$TMP" >/dev/null 2>&1 \
-        && npm install --global "$TMP"/lawbook-*.tgz >/dev/null 2>&1) \
-    || log "lawbook install failed; build it from https://github.com/drew-simmons/lawbook"
+        && corepack enable \
+        && pnpm install --frozen-lockfile \
+        && pnpm pack --pack-destination "$TMP" \
+        && npm install --global "$TMP"/lawbook-*.tgz) >>"$TMP/build.log" 2>&1 \
+    || { log "lawbook install failed; build it from https://github.com/drew-simmons/lawbook"; tail -n 20 "$TMP/build.log" >&2; }
   rm -rf "$TMP"
 fi
 
-if ! command -v hunk >/dev/null 2>&1; then
+if [ "${HUNK:-1}" != "0" ] && ! command -v hunk >/dev/null 2>&1; then
   log "installing hunk"
   npm install --global hunkdiff >/dev/null 2>&1 || true
 fi
