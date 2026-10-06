@@ -488,6 +488,6 @@ carrying `demo.sh`'s red function ran `/simplify`, then `/verify`, added the
 missing tests, and reported green in 20 turns on Sonnet 5.5, and in a first
 Haiku 4.5 run ended red after treating `/verify` as a job to wait on and
 leaving the helpers the split created untested, which is why the skill now
-says to run the script in the same turn and to expect that finding. Neither
-skill committed. The workflow has not run on GitHub yet; its first pull
+says to run the script in the same turn and to expect that finding; with that
+wording, Haiku 4.5 went green in 32 turns. Neither skill committed. The workflow has not run on GitHub yet; its first pull
 request is the test.
