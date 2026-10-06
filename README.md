@@ -476,3 +476,18 @@ review notes on the same lines. Not exercised: the Bedrock run of
 `prove-llm.sh`; the container's AWS keys were not valid for Bedrock. The
 request reached Bedrock and came back `401`, which is the whole path short of
 a valid credential.
+
+The three later ways in were exercised the same way. `prove.sh` and
+`prove-llm.sh --stub` pass with `BASE=HEAD`, as the workflow runs them, and
+`session-start.sh` installs the three tools in 30 seconds and is silent on a
+second run. `/add-module` and `/polish` were run headlessly (`claude -p`, as
+`proof/compare/compare.sh` does) in clones of this repo: `/add-module giftwrap
+...` on Haiku 4.5 read the four reference files, wrote the module and its
+test, ran `/verify` last, and reported green in 10 turns; `/polish` on a tree
+carrying `demo.sh`'s red function ran `/simplify`, then `/verify`, added the
+missing tests, and reported green in 20 turns on Sonnet 5.5, and in a first
+Haiku 4.5 run ended red after treating `/verify` as a job to wait on and
+leaving the helpers the split created untested, which is why the skill now
+says to run the script in the same turn and to expect that finding. Neither
+skill committed. The workflow has not run on GitHub yet; its first pull
+request is the test.
