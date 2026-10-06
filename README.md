@@ -403,7 +403,33 @@ user types /verify, or Claude decides to   ──►  skill runs verify.sh; Clau
 Claude ends a turn                         ──►  Stop hook runs verify.sh; red = the turn continues with the findings
 a new cloud session starts                 ──►  SessionStart installs the tools and fetches origin/main
 a human in a terminal                      ──►  hunk diff --watch; comments arrive when each turn ends
+user types /add-module <name>              ──►  skill scaffolds src/<name>.js and its test, then runs /verify until 0
+user types /polish                         ──►  skill runs /simplify, then /verify until 0, then reports ready to commit
+a pull request opens                       ──►  GitHub Actions runs verify.sh against the base branch; findings become annotations and an artifact
 ```
+
+### Four ways in
+
+One script, four ways to reach it: the four deployment patterns in
+[Anthropic's post on verification loops](https://claude.com/blog/building-verification-loops-in-claude-code-with-skills).
+
+| Pattern | Here | When |
+| --- | --- | --- |
+| Standalone | `/verify` | you, or Claude, want the verdict now |
+| Embedded | `/add-module <name>` scaffolds a rule module and its test, then runs `/verify` until it exits 0 | a skill that produces code owns its own check |
+| Chained | `/polish` runs `/simplify`, then `/verify` until 0, then reports ready to commit | adding the check to a skill you cannot edit, such as a bundled one |
+| On every PR | `.github/workflows/verify.yml` runs `verify.sh` with `BASE=origin/$GITHUB_BASE_REF`, posts findings as annotations, uploads `.verify/*.json` | a teammate's change, or a human's, passes the same gate |
+
+The two skills carry the loop to green themselves; the Stop hook is the
+backstop behind them and costs 24 ms on a tree they left green. `/polish` is
+user-invoked only (`disable-model-invocation: true`), because `/simplify`
+spawns review agents and a chain should not start by itself. The workflow
+installs the tools with the same `session-start.sh` a cloud session runs,
+with `HUNK=0`, and runs `prove.sh` and `prove-llm.sh --stub` on every push to
+`main`. A Claude in CI (`anthropics/claude-code-action@v1` with
+`prompt: "Run /verify and fix only what it names until it exits 0"`) would
+need an `ANTHROPIC_API_KEY` secret and would run without the project's hooks,
+so it is not shipped here; the deterministic gate needs no secret at all.
 
 | File | Role |
 | --- | --- |
@@ -411,8 +437,11 @@ a human in a terminal                      ──►  hunk diff --watch; comment
 | `.claude/skills/verify/scripts/verify.sh` | The six stages. The only place the order lives. |
 | `.claude/skills/verify/scripts/to-hunk.jq` | Turns both reports into Hunk's `comment apply` batch and its `--agent-context` sidecar. |
 | `.claude/hooks/verify-stop.sh` | Stop hook. Exits 0 when nothing changed or verify passes; otherwise emits `{"decision":"block","reason":…}` with verify's summary. The `stop_hook_active` guard means one forced round per turn; the skill carries the loop to green. |
-| `.claude/hooks/session-start.sh` | SessionStart hook. Installs poly-crap, lawbook, and hunk when missing, fetches `origin/main`, prints one line that becomes Claude's context. |
+| `.claude/hooks/session-start.sh` | SessionStart hook, and the workflow's install step. Installs poly-crap, lawbook, and hunk when missing (`HUNK=0` skips hunk; `POLY_CRAP_VERSION` and `LAWBOOK_REF` pin versions), fetches `origin/main`, prints one line that becomes Claude's context. |
 | `.claude/settings.json` | Wires both hooks and pre-allows the commands the loop runs, so nothing prompts. |
+| `.claude/skills/add-module/SKILL.md` | The `/add-module` skill: a rule module and its test in the shape of `shipping.js`, then `/verify` until 0. The embedded pattern. |
+| `.claude/skills/polish/SKILL.md` | The `/polish` skill: `/simplify`, then `/verify` until 0, then a report. User-invoked only. The chained pattern. |
+| `.github/workflows/verify.yml` | Every pull request: `verify.sh` against the base branch, findings as annotations, `.verify/*.json` as an artifact. Every push to `main`: `prove.sh` and `prove-llm.sh --stub`. |
 | `lawbook.yaml` | The definition of clean, above, with pass and fail fixtures for each prose standard. |
 | `lawbook.stub.yaml`, `proof/stub-judge.mjs` | The same rules judged by a local stub, for smoke-testing the model stage with no credentials. |
 | `.poly-crap.toml` | Keeps `proof/` out of poly-crap's scoring. |

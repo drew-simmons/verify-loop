@@ -3,6 +3,8 @@
     "allow": [
       "Bash(.claude/skills/verify/scripts/verify.sh *)",
       "Bash(sh .claude/skills/verify/scripts/verify.sh *)",
+      "Bash(sh .claude/hooks/session-start.sh)",
+      "Bash(.claude/hooks/session-start.sh)",
       "Bash(./demo.sh)",
       "Bash(sh demo.sh)",
       "Bash(npm run *)",

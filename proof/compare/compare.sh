@@ -56,6 +56,9 @@ prepare() {
       jq 'del(.scripts.prove, .scripts.bench, .scripts.scale, .scripts.demo, .scripts.verify)' package.json >package.tmp \
         && mv package.tmp package.json
     fi
+    # Arm C is the loop as the recorded results describe it: the /verify skill
+    # and its hooks. The embedded and chained skills are not part of the experiment.
+    [ "$arm" = C ] && rm -rf .claude/skills/add-module .claude/skills/polish
     git add -A
     git commit -q -m "chore: arm $arm starting state" --allow-empty
   )

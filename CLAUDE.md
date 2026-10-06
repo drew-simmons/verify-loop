@@ -33,6 +33,13 @@ from `origin/main`; `HUNK=0` skips the live Hunk session; `VERIFY_LLM=1|0`
 forces or skips the model stage, which otherwise runs when `AWS_REGION` is
 set; `LAWBOOK_CONFIG=lawbook.stub.yaml` judges with `proof/stub-judge.mjs`.
 
+`/add-module <name> <what it decides>` scaffolds `src/<name>.js` and its test
+in the shape of `shipping.js` and ends by running `/verify`. `/polish` runs
+`/simplify`, then `/verify` until it exits 0, and reports the change ready to
+commit; invoke it by hand. `.github/workflows/verify.yml` runs `verify.sh`
+against the base branch on every pull request and the proofs on every push
+to `main`, installing the tools with `HUNK=0 sh .claude/hooks/session-start.sh`.
+
 ## The example project
 
 An order-processing library in plain ESM JavaScript with no dependencies.
@@ -60,4 +67,8 @@ replace `if` chains. One test file per module in `test/`.
   still agrees with them.
 - When a scenario in `proof/scenarios/` stops being caught, the loop has a
   hole; fix the loop, not the scenario.
+- A skill that produces code ends by running `/verify`; a skill that chains
+  others names the order and runs `/verify` last. Neither commits.
+- The workflow calls `verify.sh` and `session-start.sh`; the stage list and
+  the install steps live there, not in YAML.
 - Conventional Commit subjects. No AI attribution in commits.
