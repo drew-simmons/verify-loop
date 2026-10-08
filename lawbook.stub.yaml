@@ -1,15 +1,15 @@
-# The same rules as lawbook.yaml, judged by proof/stub-judge.mjs instead of a
-# model. For smoke-testing the model stage with no credentials:
+# The same rules as lawbook.yaml, judged by proof/stub-judge/claude instead of
+# a model. For smoke-testing the model stage with no credentials: lawbook's
+# `claude-code` provider runs the first `claude` on PATH, so put the stub there.
 #
-#   node proof/stub-judge.mjs &
-#   LAWBOOK_CONFIG=lawbook.stub.yaml VERIFY_LLM=1 sh .claude/skills/verify/scripts/verify.sh
+#   PATH="$PWD/proof/stub-judge:$PATH" LAWBOOK_CONFIG=lawbook.stub.yaml VERIFY_LLM=1 \
+#     sh .claude/skills/verify/scripts/verify.sh
 #
 # `extends` inherits only the rules; this file's `llm` block replaces the judge.
 version: 1
 extends: ./lawbook.yaml
 llm:
-  provider: openai
+  provider: claude-code
   model: stub
-  baseUrl: http://127.0.0.1:47391/v1
   maxRequests: 200
 rules: []

@@ -148,7 +148,7 @@ spent on code that is about to change anyway, and only when you opt in:
 
 | Setting | Effect |
 | --- | --- |
-| `AWS_REGION=us-east-1` | runs the stage on Bedrock with the judge named in `lawbook.yaml`: Haiku 4.5, Sonnet 5.5 on two standards |
+| `AWS_REGION=us-east-1` | runs the stage on Bedrock with the judge named in `lawbook.yaml`: Haiku 4.5, Sonnet 5 on three standards |
 | `VERIFY_LLM=1` / `VERIFY_LLM=0` | forces the stage on, or off, whatever the region says |
 | `MAX_REQUESTS=20` | lawbook stops before the first request when a run would exceed it |
 | `LAWBOOK_CONFIG=lawbook.stub.yaml` | judges with the local stub instead of a model |
@@ -171,12 +171,12 @@ each run says how many requests were served from the cache.
 
 The judge and the session model are different jobs. A verdict is a bounded
 question on one file with a fixed prompt and a JSON answer, and a wrong verdict
-only warns, is cached, and shows up in the fixtures. The session model reads
-the reason and changes code, where a mistake costs turns. So the judge is the
-small, fast model and the session model is the strong one: `lawbook.yaml`
-names Haiku 4.5 as the judge, with Sonnet 5.5 overriding it on the two
-standards that need the most judgment, `functions-do-one-thing` and
-`dependencies-are-injected`. Claude Code stays on its default model.
+only warns, is cached, and shows up in the fixtures. The session model reads the
+reason and changes code, where a mistake costs turns. So the judge is the small,
+fast model and the session model is the strong one: `lawbook.yaml` names Haiku
+4.5 as the judge, with Sonnet 5 overriding it on the three standards that need
+the most judgment, `functions-do-one-thing`, `dependencies-are-injected`, and
+`errors-are-handled-not-hidden`. Claude Code stays on its default model.
 
 The arithmetic says the judge's price barely matters. A changed source file
 is five requests of a few thousand tokens each, well under a cent on Haiku
@@ -188,9 +188,14 @@ knob for that, and `proof/judge-agreement.sh` is the evidence for setting
 it: it judges the fixtures and the seven model scenarios under both judges
 and prints the disagreements per standard.
 
-Any OpenAI-compatible endpoint that supports JSON-schema output can be the
-judge through lawbook's `openai` provider and a `baseUrl`, which is how
-`lawbook.stub.yaml` plugs in the stub and how a non-Anthropic judge would.
+lawbook judges through Bedrock or, with `provider: claude-code`, through the
+installed `claude` CLI and the Claude subscription it is signed into. The
+Bedrock Messages endpoint serves only some of the models Bedrock lists: in
+the account this was run from, Haiku 4.5, Sonnet 5, and Opus 5.5 answered
+and Sonnet 5.5 and Haiku 5.5 did not, which is why `lawbook.yaml` names
+Sonnet 5. An id it does not serve fails with a 404 before any verdict.
+`lawbook.stub.yaml` uses the `claude-code` provider with a stand-in `claude`
+first on `PATH`, which is how the stub plugs in.
 
 ### The fixtures: does the judge agree with a human?
 
@@ -207,11 +212,12 @@ the last one, a clean change), run `verify`, and check that the named
 standard warned on the changed file and nothing else broke. Then the clean
 change is judged twice to show the second run is free.
 
-With `--stub` the judge is `proof/stub-judge.mjs`, a 60-line local server
-speaking the chat-completions shape lawbook's `openai` provider expects. It
-answers 0.1 for a file carrying the marker comment or a fail fixture and 0.9
-otherwise, so the run is deterministic and needs no credentials. It proves the
-plumbing: the request, the JSON answer, the `warn` status, the noul in the
+With `--stub` the judge is `proof/stub-judge/claude`, a stand-in for the
+Claude Code CLI that lawbook's `claude-code` provider runs once per request;
+the script puts it first on `PATH`. It answers 0.1 for a file carrying the
+marker comment or a fail fixture and 0.9 otherwise, so the run is
+deterministic and needs no credentials. It proves the plumbing: the request,
+the JSON answer, the `warn` status, the noul in the
 Hunk comment, the cache.
 
 ```text
@@ -437,21 +443,22 @@ so it is not shipped here; the deterministic gate needs no secret at all.
 | `.claude/skills/verify/scripts/verify.sh` | The six stages. The only place the order lives. |
 | `.claude/skills/verify/scripts/to-hunk.jq` | Turns both reports into Hunk's `comment apply` batch and its `--agent-context` sidecar. |
 | `.claude/hooks/verify-stop.sh` | Stop hook. Exits 0 when nothing changed or verify passes; otherwise emits `{"decision":"block","reason":…}` with verify's summary. The `stop_hook_active` guard means one forced round per turn; the skill carries the loop to green. |
-| `.claude/hooks/session-start.sh` | SessionStart hook, and the workflow's install step. Installs poly-crap, lawbook, and hunk when missing (`HUNK=0` skips hunk; `POLY_CRAP_VERSION` and `LAWBOOK_REF` pin versions), fetches `origin/main`, prints one line that becomes Claude's context. |
+| `.claude/hooks/session-start.sh` | SessionStart hook, and the workflow's install step. Installs poly-crap, lawbook, and hunk when missing (`HUNK=0` skips hunk; `POLY_CRAP_VERSION` and `LAWBOOK_VERSION` pin versions), fetches `origin/main`, prints one line that becomes Claude's context. |
 | `.claude/settings.json` | Wires both hooks and pre-allows the commands the loop runs, so nothing prompts. |
 | `.claude/skills/add-module/SKILL.md` | The `/add-module` skill: a rule module and its test in the shape of `shipping.js`, then `/verify` until 0. The embedded pattern. |
 | `.claude/skills/polish/SKILL.md` | The `/polish` skill: `/simplify`, then `/verify` until 0, then a report. User-invoked only. The chained pattern. |
 | `.github/workflows/verify.yml` | Every pull request: `verify.sh` against the base branch, findings as annotations, `.verify/*.json` as an artifact. Every push to `main`: `prove.sh` and `prove-llm.sh --stub`. |
 | `lawbook.yaml` | The definition of clean, above, with pass and fail fixtures for each prose standard. |
-| `lawbook.stub.yaml`, `proof/stub-judge.mjs` | The same rules judged by a local stub, for smoke-testing the model stage with no credentials. |
+| `lawbook.stub.yaml`, `proof/stub-judge/` | The same rules judged by a stand-in `claude` CLI, for smoke-testing the model stage with no credentials. |
 | `.poly-crap.toml` | Keeps `proof/` out of poly-crap's scoring. |
 | `proof/` | `prove.sh`, `bench.sh`, `scale.sh`, `prove-llm.sh`, the eighteen scenarios, the fixtures, and `compare/` (the three-arm experiment, its tasks, arms, runner, scorer, and results). |
 | `demo.sh` | The 60-second story: red, green, cached. |
 
-Findings become Hunk comments through one jq filter. A poly-crap entry over
-the threshold becomes a comment at its start line reading
-`CRAP 24.3 · CC 4 · no coverage · refundFor`; a lawbook finding becomes one
-at its line reading `[no-console] remove the console call; return a value or throw instead`.
+Findings become Hunk comments through one jq filter. A poly-crap entry over the
+threshold becomes a comment at its start line reading
+`CRAP 24.3 · CC 4 · no coverage · refundFor`; a lawbook finding becomes one at
+its line reading
+`[no-console] remove the console call; return a value or throw instead`.
 
 ## Adapting it
 
@@ -481,13 +488,13 @@ The three later ways in were exercised the same way. `prove.sh` and
 `prove-llm.sh --stub` pass with `BASE=HEAD`, as the workflow runs them, and
 `session-start.sh` installs the three tools in 30 seconds and is silent on a
 second run. `/add-module` and `/polish` were run headlessly (`claude -p`, as
-`proof/compare/compare.sh` does) in clones of this repo: `/add-module giftwrap
-...` on Haiku 4.5 read the four reference files, wrote the module and its
-test, ran `/verify` last, and reported green in 10 turns; `/polish` on a tree
-carrying `demo.sh`'s red function ran `/simplify`, then `/verify`, added the
-missing tests, and reported green in 20 turns on Sonnet 5.5, and in a first
-Haiku 4.5 run ended red after treating `/verify` as a job to wait on and
-leaving the helpers the split created untested, which is why the skill now
-says to run the script in the same turn and to expect that finding; with that
-wording, Haiku 4.5 went green in 32 turns. Neither skill committed. The workflow has not run on GitHub yet; its first pull
-request is the test.
+`proof/compare/compare.sh` does) in clones of this repo:
+`/add-module giftwrap ...` on Haiku 4.5 read the four reference files, wrote the
+module and its test, ran `/verify` last, and reported green in 10 turns;
+`/polish` on a tree carrying `demo.sh`'s red function ran `/simplify`, then
+`/verify`, added the missing tests, and reported green in 20 turns on Sonnet
+5.5, and in a first Haiku 4.5 run ended red after treating `/verify` as a job to
+wait on and leaving the helpers the split created untested, which is why the
+skill now says to run the script in the same turn and to expect that finding;
+with that wording, Haiku 4.5 went green in 32 turns. Neither skill committed.
+The workflow has not run on GitHub yet; its first pull request is the test.

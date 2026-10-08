@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# A stand-in for the Claude Code CLI. lawbook's `claude-code` provider runs
+# the first `claude` on PATH once per request, so putting this directory
+# first on PATH makes judge.mjs the judge. No credentials, no network.
+exec node "$(dirname "$0")/judge.mjs" "$@"

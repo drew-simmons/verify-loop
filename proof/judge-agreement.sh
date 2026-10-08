@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Which model should judge? Judges the fixtures and the model scenarios under
-# two judges, Haiku 4.5 and Sonnet 5.5, with every per-rule override removed,
+# two judges, Haiku 4.5 and Sonnet 5, with every per-rule override removed,
 # and prints where they disagree with the fixtures and with each other.
 #
 #   AWS_REGION=us-east-1 sh proof/judge-agreement.sh
@@ -14,13 +14,10 @@ if [ -n "$(git status --porcelain -- src test)" ]; then
 fi
 mkdir -p .verify
 export BASE=${BASE:-main}
-STUB_PID=""
 if [ "${1:-}" = "--stub" ]; then
   export MARKER="// stub: fails standard"
-  node proof/stub-judge.mjs >.verify/stub.log 2>&1 &
-  STUB_PID=$!
-  tries=0
-  until grep -q listening .verify/stub.log 2>/dev/null || [ "$tries" -ge 20 ]; do tries=$((tries + 1)); sleep 0.25; done
+  # lawbook's claude-code provider runs the first `claude` on PATH: the stub.
+  export PATH="$PWD/proof/stub-judge:$PATH"
   PROVIDER=stub
 else
   export MARKER=""
@@ -32,7 +29,7 @@ else
 fi
 
 restore() { git checkout -q -- src test; git clean -fdq -- src test; }
-cleanup() { restore; [ -n "$STUB_PID" ] && kill "$STUB_PID" 2>/dev/null; rm -rf .verify/judge-*.yaml .verify/cache-*; }
+cleanup() { restore; rm -rf .verify/judge-*.yaml .verify/cache-*; }
 trap cleanup EXIT INT TERM
 now_ms() {
   ns=$(date +%s%N 2>/dev/null)
@@ -47,10 +44,10 @@ provider = sys.argv[1]
 config = yaml.safe_load(open("lawbook.yaml"))
 for rule in config["rules"]:
     rule.pop("llm", None)
-for name, model in [("haiku", "anthropic.claude-haiku-4-5"), ("sonnet", "anthropic.claude-sonnet-5-5")]:
+for name, model in [("haiku", "anthropic.claude-haiku-4-5"), ("sonnet", "anthropic.claude-sonnet-5")]:
     llm = {"provider": "bedrock", "model": model, "maxRequests": 200}
     if provider == "stub":
-        llm = {"provider": "openai", "model": model, "baseUrl": "http://127.0.0.1:47391/v1", "maxRequests": 200}
+        llm = {"provider": "claude-code", "model": model, "maxRequests": 200}
     out = dict(config)
     out["llm"] = llm
     yaml.safe_dump(out, open(f".verify/judge-{name}.yaml", "w"), sort_keys=False, width=100)
