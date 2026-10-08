@@ -2,7 +2,7 @@
 # SessionStart hook: make sure the loop's three tools exist, fetch the base
 # branch, and tell Claude what is available. Idempotent and never fatal: a
 # session must start even when offline. HUNK=0 skips hunk (CI has no TUI).
-# POLY_CRAP_VERSION and LAWBOOK_REF pin the installs; both default to latest.
+# POLY_CRAP_VERSION and LAWBOOK_VERSION pin the installs; both default to latest.
 set -u
 
 BIN="$HOME/.local/bin"
@@ -27,16 +27,9 @@ if ! command -v poly-crap >/dev/null 2>&1 && command -v gh >/dev/null 2>&1; then
 fi
 
 if ! command -v lawbook >/dev/null 2>&1; then
-  log "installing lawbook from source (it is not on npm)"
-  TMP=$(mktemp -d)
-  git clone -q --depth 1 --branch "${LAWBOOK_REF:-main}" https://github.com/drew-simmons/lawbook "$TMP/lawbook" >"$TMP/build.log" 2>&1 \
-    && (cd "$TMP/lawbook" \
-        && corepack enable \
-        && pnpm install --frozen-lockfile \
-        && pnpm pack --pack-destination "$TMP" \
-        && npm install --global "$TMP"/lawbook-*.tgz) >>"$TMP/build.log" 2>&1 \
-    || { log "lawbook install failed; build it from https://github.com/drew-simmons/lawbook"; tail -n 20 "$TMP/build.log" >&2; }
-  rm -rf "$TMP"
+  log "installing lawbook${LAWBOOK_VERSION:+ $LAWBOOK_VERSION}"
+  npm install --global "lawbook@${LAWBOOK_VERSION:-latest}" >/dev/null 2>&1 \
+    || log "lawbook install failed; run: npm install --global lawbook"
 fi
 
 if [ "${HUNK:-1}" != "0" ] && ! command -v hunk >/dev/null 2>&1; then

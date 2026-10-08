@@ -20,7 +20,7 @@ env:
   HUNK: "0" # no Hunk session in CI; session-start.sh skips the install too
   VERIFY_LLM: "0" # no credentials in CI; the prose standards stay off
   POLY_CRAP_VERSION: "0.8.1"
-  # LAWBOOK_REF: v1.0.0   # lawbook has no release yet; pin a tag here when it does
+  LAWBOOK_VERSION: "0.2.0"
 
 jobs:
   gate:

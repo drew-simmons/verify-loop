@@ -30,8 +30,9 @@ lawbook test .                             # the prose standards against their f
 runs it again at the end of every turn that changed something and blocks the
 turn with the findings while the change is red. `BASE=<ref>` changes the base
 from `origin/main`; `HUNK=0` skips the live Hunk session; `VERIFY_LLM=1|0`
-forces or skips the model stage, which otherwise runs when `AWS_REGION` is
-set; `LAWBOOK_CONFIG=lawbook.stub.yaml` judges with `proof/stub-judge.mjs`.
+forces or skips the model stage, which otherwise runs when `AWS_REGION` is set;
+`LAWBOOK_CONFIG=lawbook.stub.yaml` judges with `proof/stub-judge/claude`, a
+stand-in `claude` CLI the proofs put first on `PATH`.
 
 `/add-module <name> <what it decides>` scaffolds `src/<name>.js` and its test
 in the shape of `shipping.js` and ends by running `/verify`. `/polish` runs
@@ -60,7 +61,7 @@ replace `if` chains. One test file per module in `test/`.
   arguing with a finding.
 - The deterministic loop never needs network access or credentials. The six
   prose standards in `lawbook.yaml` are judged on Bedrock by Haiku 4.5, with
-  Sonnet 5.5 on the two standards that need the most judgment; opt in
+  Sonnet 5 on the three standards that need the most judgment; opt in
   through `AWS_REGION` plus credentials; they only warn. The session model
   stays the strong one: the judge answers, the session fixes. Each has pass and
   fail fixtures under `proof/fixtures/`; `lawbook test` checks the judge

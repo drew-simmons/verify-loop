@@ -2,7 +2,8 @@
 # The model proof: the prose standards in lawbook.yaml, judged by a model on
 # Bedrock, catch what no regex can, agree with a human on the fixtures, pass a
 # clean change, and cost nothing on a rerun. With --stub the judge is
-# proof/stub-judge.mjs, so the same plumbing runs with no credentials.
+# proof/stub-judge/claude, a stand-in for the Claude Code CLI, so the same
+# plumbing runs with no credentials.
 #
 #   AWS_REGION=us-east-1 sh proof/prove-llm.sh
 #   sh proof/prove-llm.sh --stub
@@ -19,17 +20,11 @@ export HUNK=${HUNK:-0} VERIFY_LLM=1 BASE=${BASE:-main}
 export LAWBOOK_CACHE_DIR=.verify/cache
 rm -rf .verify/cache
 
-STUB_PID=""
 if [ "${1:-}" = "--stub" ]; then
   export LAWBOOK_CONFIG=lawbook.stub.yaml
   export MARKER="// stub: fails standard"
-  mkdir -p .verify
-  node proof/stub-judge.mjs >.verify/stub.log 2>&1 &
-  STUB_PID=$!
-  tries=0
-  until grep -q listening .verify/stub.log 2>/dev/null || [ "$tries" -ge 20 ]; do
-    tries=$((tries + 1)); sleep 0.25
-  done
+  # lawbook's claude-code provider runs the first `claude` on PATH: the stub.
+  export PATH="$PWD/proof/stub-judge:$PATH"
   judge="stub judge"
 else
   export LAWBOOK_CONFIG=${LAWBOOK_CONFIG:-lawbook.yaml} MARKER=""
@@ -43,7 +38,6 @@ fi
 restore() { git checkout -q -- src test; git clean -fdq -- src test; }
 cleanup() {
   restore
-  [ -n "$STUB_PID" ] && kill "$STUB_PID" 2>/dev/null
   rm -rf .verify lcov.info
 }
 trap cleanup EXIT INT TERM

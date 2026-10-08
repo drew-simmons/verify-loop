@@ -19,7 +19,6 @@
       "Bash(jq *)",
       "Bash(sh proof/*)",
       "Bash(./proof/*)",
-      "Bash(node proof/stub-judge.mjs)",
       "Bash(HUNK=*)",
       "Bash(VERIFY_LLM=*)",
       "Bash(BASE=*)"
