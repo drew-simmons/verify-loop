@@ -21,7 +21,7 @@ export function canReserve(stock, sku, quantity) {
   return ok;
 }
 JS
-  sed -i 's/import { release, reserve } from/import { canReserve, release, reserve } from/' test/inventory.test.js
+  sed -i.bak 's/import { release, reserve } from/import { canReserve, release, reserve } from/' test/inventory.test.js && rm test/inventory.test.js.bak
   cat >>test/inventory.test.js <<'JS'
 
 test("a reservation is possible only for a known sku with enough stock", () => {
