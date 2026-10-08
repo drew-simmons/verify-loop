@@ -15,7 +15,7 @@ export function findProductOrNull(catalog, sku) {
   }
 }
 JS
-  sed -i 's/import { createCatalog, findProduct } from/import { createCatalog, findProduct, findProductOrNull } from/' test/catalog.test.js
+  sed -i.bak 's/import { createCatalog, findProduct } from/import { createCatalog, findProduct, findProductOrNull } from/' test/catalog.test.js && rm test/catalog.test.js.bak
   cat >>test/catalog.test.js <<'JS'
 
 test("an unknown sku gives null instead of an error", () => {

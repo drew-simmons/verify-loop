@@ -15,7 +15,7 @@ test("regions with a zero rate are tax free", () => {
   assert.equal(isTaxFree("CA"), false);
 });
 JS
-  sed -i 's/import { taxFor, taxRate } from/import { isTaxFree, taxFor, taxRate } from/' test/tax.test.js
+  sed -i.bak 's/import { taxFor, taxRate } from/import { isTaxFree, taxFor, taxRate } from/' test/tax.test.js && rm test/tax.test.js.bak
 }
 expect() {
   jq -e '.results[] | select(.id == "exports-are-documented" and .status == "fail")' .verify/lawbook.json >/dev/null
