@@ -12,7 +12,7 @@ if [ -n "$(git status --porcelain -- src test)" ]; then
   echo "bench: src/ or test/ has uncommitted changes; commit or stash them first" >&2
   exit 2
 fi
-VERIFY=".claude/skills/verify/scripts/verify.sh"
+VERIFY=".factory/verify"
 export HUNK=${HUNK:-0}
 restore() { git checkout -q -- src test; git clean -fdq -- src test; }
 trap 'restore; rm -rf .verify lcov.info' EXIT INT TERM

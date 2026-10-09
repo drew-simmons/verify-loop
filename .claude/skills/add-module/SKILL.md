@@ -1,6 +1,6 @@
 ---
 name: add-module
-description: Add a new independent rule module to the example project, src/<name>.js with test/<name>.test.js, in the shape of shipping.js, and run /verify on it until the gate is green. Use when asked to add a module, a new rule module, a new file under src/, or a new set of business rules to this project.
+description: Add a new independent rule module to the example project, src/<name>.js with test/<name>.test.js, in the shape of shipping.js, and run /factory:verify on it until the gate is green. Use when asked to add a module, a new rule module, a new file under src/, or a new set of business rules to this project.
 argument-hint: <name> [what it decides]
 ---
 
@@ -42,13 +42,13 @@ what the module decides before writing anything.
 
 ## Then verify
 
-Run /verify and read its exit code.
+Run /factory:verify and read its exit code.
 - 0: done. Report.
 - 1: fix only what `.verify/crap.json` and `.verify/lawbook.json` name: a test
   for an uncovered branch, a split for a function over complexity 5, the doc
-  comment or rule it points at. Run /verify again.
+  comment or rule it points at. Run /factory:verify again.
 - 2: the loop is broken, not the module. Fix the setup it names, run again.
-Repeat until 0. Do not report the module as done while /verify is red, and do
+Repeat until 0. Do not report the module as done while /factory:verify is red, and do
 not commit.
 
 ## Report

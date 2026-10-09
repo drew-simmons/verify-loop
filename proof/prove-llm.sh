@@ -14,7 +14,7 @@ if [ -n "$(git status --porcelain -- src test)" ]; then
   echo "prove-llm: src/ or test/ has uncommitted changes; commit or stash them first" >&2
   exit 2
 fi
-VERIFY=".claude/skills/verify/scripts/verify.sh"
+VERIFY=".factory/verify"
 export HUNK=${HUNK:-0} VERIFY_LLM=1 BASE=${BASE:-main}
 # A cache of its own, emptied first, so every request count below is a cold one.
 export LAWBOOK_CACHE_DIR=.verify/cache

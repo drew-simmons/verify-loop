@@ -1,3 +1,4 @@
 .verify/
 lcov.info
 node_modules/
+.factory-plugin/

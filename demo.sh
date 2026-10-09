@@ -16,7 +16,7 @@ if [ -n "$(git status --porcelain -- src test)" ]; then
   exit 2
 fi
 
-VERIFY=".claude/skills/verify/scripts/verify.sh"
+VERIFY=".factory/verify"
 cleanup() {
   git checkout -q -- src test
   git clean -fdq -- src test

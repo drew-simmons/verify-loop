@@ -10,7 +10,7 @@ if [ -n "$(git status --porcelain -- src test)" ]; then
   echo "prove: src/ or test/ has uncommitted changes; commit or stash them first" >&2
   exit 2
 fi
-VERIFY=".claude/skills/verify/scripts/verify.sh"
+VERIFY=".factory/verify"
 export HUNK=${HUNK:-0}
 
 restore() {

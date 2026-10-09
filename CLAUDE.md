@@ -2,8 +2,10 @@
 
 A worked example of a verification loop for Claude Code: poly-crap, lawbook,
 and Hunk on one definition of the change, behind one script with one exit
-code. `src/` is the project the loop verifies; `.claude/` is the loop;
-`proof/` shows the loop catching real mistakes, how long it takes, how it
+code. `src/` is the project the loop verifies; the loop itself is the
+[factory](https://github.com/drew-simmons/factory) plugin, and this repository
+owns its configuration (`.factory/config.sh`, `lawbook.yaml`) and the
+proofs; `proof/` shows the loop catching real mistakes, how long it takes, how it
 scales, and (in `proof/compare/`) how it fares against prompting alone and
 against a long steering file.
 
@@ -12,7 +14,7 @@ against a long steering file.
 ```sh
 npm test                                   # node:test, 39 tests
 npm run coverage                           # tests + lcov.info
-sh .claude/skills/verify/scripts/verify.sh # the loop: exit 0 clean, 1 gate failed, 2 broken
+sh .factory/verify                         # the loop: exit 0 clean, 1 gate failed, 2 broken
 sh demo.sh                                 # red → green → cached in 60 seconds
 sh proof/prove.sh                          # 11 scenarios, each caught or passed as expected
 sh proof/bench.sh                          # stage-by-stage timings
@@ -26,20 +28,25 @@ lawbook check . --no-llm                   # the clean-code rules alone
 lawbook test .                             # the prose standards against their fixtures
 ```
 
-`/verify` runs the loop as a skill. The Stop hook in `.claude/settings.json`
-runs it again at the end of every turn that changed something and blocks the
-turn with the findings while the change is red. `BASE=<ref>` changes the base
-from `origin/main`; `HUNK=0` skips the live Hunk session; `VERIFY_LLM=1|0`
-forces or skips the model stage, which otherwise runs when `AWS_REGION` is set;
+`/factory:verify` runs the loop as a skill; `.factory/verify` is a shim
+that finds the installed plugin (or `FACTORY_ROOT`, a checkout of its
+`plugins/factory` directory) and runs the same script. The plugin's Stop
+hook runs it again at the end of every turn that changed something and
+blocks the turn with the findings while the change is red; its SessionStart
+hook installs poly-crap, lawbook, and hunk. `.claude/settings.json` pins the
+plugin for every clone. `BASE=<ref>` changes the base from `origin/main`;
+`HUNK=0` skips the live Hunk session; `VERIFY_LLM=1|0` forces or skips the
+model stage, which otherwise runs when `AWS_REGION` is set;
 `LAWBOOK_CONFIG=lawbook.stub.yaml` judges with `proof/stub-judge/claude`, a
 stand-in `claude` CLI the proofs put first on `PATH`.
 
 `/add-module <name> <what it decides>` scaffolds `src/<name>.js` and its test
-in the shape of `shipping.js` and ends by running `/verify`. `/polish` runs
-`/simplify`, then `/verify` until it exits 0, and reports the change ready to
-commit; invoke it by hand. `.github/workflows/verify.yml` runs `verify.sh`
-against the base branch on every pull request and the proofs on every push
-to `main`, installing the tools with `HUNK=0 sh .claude/hooks/session-start.sh`.
+in the shape of `shipping.js` and ends by running `/factory:verify`. The
+plugin's `/factory:review` is the chained pattern (`/simplify`, the gate,
+`/code-review`, the gate); `/factory:work` is the entry point for any task.
+`.github/workflows/verify.yml` runs the gate through the plugin's action
+against the base branch on every pull request, and the proofs on every push
+to `main` with a checkout of the plugin as `FACTORY_ROOT`.
 
 ## The example project
 
@@ -52,7 +59,7 @@ replace `if` chains. One test file per module in `test/`.
 
 ## Conventions
 
-- Run `/verify` before committing. A function fails above CRAP 5, so keep
+- Run `/factory:verify` before committing. A function fails above CRAP 5, so keep
   complexity at 5 or below and cover every branch. A fully tested function
   with complexity 7 still fails; split it.
 - `lawbook.yaml` is the definition of clean here: no console, no I/O, no
@@ -68,8 +75,10 @@ replace `if` chains. One test file per module in `test/`.
   still agrees with them.
 - When a scenario in `proof/scenarios/` stops being caught, the loop has a
   hole; fix the loop, not the scenario.
-- A skill that produces code ends by running `/verify`; a skill that chains
-  others names the order and runs `/verify` last. Neither commits.
-- The workflow calls `verify.sh` and `session-start.sh`; the stage list and
-  the install steps live there, not in YAML.
+- A skill that produces code ends by running `/factory:verify`; a skill that
+  chains others names the order and runs `/factory:verify` last. Neither
+  commits.
+- The stage list lives in the plugin's `verify.sh` and the stack lines in
+  `.factory/config.sh`, not in YAML. A change to the stages is a change to
+  the plugin; `proof/` is what proves it still works.
 - Conventional Commit subjects. No AI attribution in commits.

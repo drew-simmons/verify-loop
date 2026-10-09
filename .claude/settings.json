@@ -1,10 +1,13 @@
 {
+  "extraKnownMarketplaces": {
+    "factory": { "source": { "source": "github", "repo": "drew-simmons/factory" } }
+  },
+  "enabledPlugins": { "factory@factory": true },
   "permissions": {
     "allow": [
-      "Bash(.claude/skills/verify/scripts/verify.sh *)",
-      "Bash(sh .claude/skills/verify/scripts/verify.sh *)",
-      "Bash(sh .claude/hooks/session-start.sh)",
-      "Bash(.claude/hooks/session-start.sh)",
+      "Bash(sh .factory/verify *)",
+      "Bash(sh .factory/verify)",
+      "Bash(.factory/verify *)",
       "Bash(./demo.sh)",
       "Bash(sh demo.sh)",
       "Bash(npm run *)",
@@ -21,32 +24,8 @@
       "Bash(./proof/*)",
       "Bash(HUNK=*)",
       "Bash(VERIFY_LLM=*)",
-      "Bash(BASE=*)"
-    ]
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
-            "timeout": 600
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-stop.sh",
-            "timeout": 600
-          }
-        ]
-      }
+      "Bash(BASE=*)",
+      "Bash(FACTORY_ROOT=*)"
     ]
   }
 }

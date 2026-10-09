@@ -14,12 +14,21 @@ The loop is: **edit → `verify` → findings appear in Hunk and in JSON → fix
 what is named → repeat until exit 0 → commit.** On this project a full run
 takes about 1.2 seconds, and a rerun on an unchanged tree takes 24 ms.
 
+The loop itself ships as the [factory](https://github.com/drew-simmons/factory)
+plugin for Claude Code; this repository owns the configuration and the proof.
+
 ```sh
 git clone https://github.com/drew-simmons/verify-loop && cd verify-loop
-sh .claude/hooks/session-start.sh   # installs poly-crap, lawbook, hunk if missing
-sh demo.sh                          # red → green → cached in 60 seconds
-sh proof/prove.sh                   # eleven mistakes, each caught; one correct change, passed
+git clone https://github.com/drew-simmons/factory ../factory
+export FACTORY_ROOT=$PWD/../factory/plugins/factory
+sh "$FACTORY_ROOT/hooks/session-start.sh"   # installs poly-crap, lawbook, hunk if missing
+sh demo.sh                                  # red → green → cached in 60 seconds
+sh proof/prove.sh                           # ten mistakes, each caught; one correct change, passed
 ```
+
+In Claude Code, `/plugin marketplace add drew-simmons/factory` and
+`/plugin install factory@factory` replace the second and third lines:
+`.claude/settings.json` already pins the plugin, and `.factory/verify` finds it.
 
 ## The example project
 
@@ -257,7 +266,7 @@ headlessly under three setups and scores every result with the same gate.
 | --- | --- |
 | **A** prompt only | `src/`, `test/`, a 15-line README, a 10-line CLAUDE.md with the commands. No rules anywhere. |
 | **B** long steering file | the same, plus a 242-line CLAUDE.md: every rule in this repository as prose, lawbook's clean-code standards as instructions, the CRAP ceiling, "run coverage before you finish". No gate. |
-| **C** the loop | this repository as committed: the 57-line CLAUDE.md, the `/verify` skill, the Stop hook, the rules on disk. |
+| **C** the loop | this repository as committed: the 57-line CLAUDE.md, the verify skill, the Stop hook, the rules on disk (now the factory plugin, loaded with `--plugin-dir`). |
 
 The tasks are the requests a product owner would write, and none mentions
 tests, complexity, or rules: refunds by reason, express on freight, a
@@ -404,14 +413,18 @@ when `origin/main` does not exist, `main` is used.
 
 ## How it hooks into Claude Code
 
+The hooks and the skills come from the factory plugin; this repository
+adds `/add-module` and the proofs.
+
 ```text
-user types /verify, or Claude decides to   ──►  skill runs verify.sh; Claude reads .verify/*.json, fixes, reruns
-Claude ends a turn                         ──►  Stop hook runs verify.sh; red = the turn continues with the findings
-a new cloud session starts                 ──►  SessionStart installs the tools and fetches origin/main
+user types /factory:verify, or Claude does ──►  skill runs verify.sh; Claude reads .verify/*.json, fixes, reruns
+Claude ends a turn                         ──►  the plugin's Stop hook runs verify.sh; red = the turn continues with the findings
+a new session starts                       ──►  the plugin's SessionStart installs the tools and fetches origin/main
 a human in a terminal                      ──►  hunk diff --watch; comments arrive when each turn ends
-user types /add-module <name>              ──►  skill scaffolds src/<name>.js and its test, then runs /verify until 0
-user types /polish                         ──►  skill runs /simplify, then /verify until 0, then reports ready to commit
-a pull request opens                       ──►  GitHub Actions runs verify.sh against the base branch; findings become annotations and an artifact
+user types /add-module <name>              ──►  skill scaffolds src/<name>.js and its test, then runs /factory:verify until 0
+user types /factory:review                 ──►  /simplify, the gate, /code-review, the gate, then a report
+user types /factory:work <task>            ──►  sizes the task and runs plan, build, verify, review, ship
+a pull request opens                       ──►  the plugin's action runs verify.sh against the base branch; findings become annotations and an artifact
 ```
 
 ### Four ways in
@@ -421,33 +434,26 @@ One script, four ways to reach it: the four deployment patterns in
 
 | Pattern | Here | When |
 | --- | --- | --- |
-| Standalone | `/verify` | you, or Claude, want the verdict now |
-| Embedded | `/add-module <name>` scaffolds a rule module and its test, then runs `/verify` until it exits 0 | a skill that produces code owns its own check |
-| Chained | `/polish` runs `/simplify`, then `/verify` until 0, then reports ready to commit | adding the check to a skill you cannot edit, such as a bundled one |
-| On every PR | `.github/workflows/verify.yml` runs `verify.sh` with `BASE=origin/$GITHUB_BASE_REF`, posts findings as annotations, uploads `.verify/*.json` | a teammate's change, or a human's, passes the same gate |
+| Standalone | `/factory:verify` | you, or Claude, want the verdict now |
+| Embedded | `/add-module <name>` scaffolds a rule module and its test, then runs `/factory:verify` until it exits 0 | a skill that produces code owns its own check |
+| Chained | `/factory:review` runs `/simplify`, then the gate, then `/code-review`, then the gate | adding the check to a skill you cannot edit, such as a bundled one |
+| On every PR | `.github/workflows/verify.yml` runs the plugin's action with `base: origin/$GITHUB_BASE_REF`, which posts findings as annotations and uploads `.verify/*.json` | a teammate's change, or a human's, passes the same gate |
 
-The two skills carry the loop to green themselves; the Stop hook is the
-backstop behind them and costs 24 ms on a tree they left green. `/polish` is
-user-invoked only (`disable-model-invocation: true`), because `/simplify`
-spawns review agents and a chain should not start by itself. The workflow
-installs the tools with the same `session-start.sh` a cloud session runs,
-with `HUNK=0`, and runs `prove.sh` and `prove-llm.sh --stub` on every push to
-`main`. A Claude in CI (`anthropics/claude-code-action@v1` with
+The skills carry the loop to green themselves; the Stop hook is the backstop
+behind them and costs 24 ms on a tree they left green. The workflow installs
+the tools with the same `session-start.sh` a session runs, with `HUNK=0`, and
+runs `prove.sh` and `prove-llm.sh --stub` on every push to `main`. A Claude in CI (`anthropics/claude-code-action@v1` with
 `prompt: "Run /verify and fix only what it names until it exits 0"`) would
 need an `ANTHROPIC_API_KEY` secret and would run without the project's hooks,
 so it is not shipped here; the deterministic gate needs no secret at all.
 
 | File | Role |
 | --- | --- |
-| `.claude/skills/verify/SKILL.md` | The `/verify` skill: the loop contract in four steps. Claude can invoke it on its own. |
-| `.claude/skills/verify/scripts/verify.sh` | The six stages. The only place the order lives. |
-| `.claude/skills/verify/scripts/to-hunk.jq` | Turns both reports into Hunk's `comment apply` batch and its `--agent-context` sidecar. |
-| `.claude/hooks/verify-stop.sh` | Stop hook. Exits 0 when nothing changed or verify passes; otherwise emits `{"decision":"block","reason":…}` with verify's summary. The `stop_hook_active` guard means one forced round per turn; the skill carries the loop to green. |
-| `.claude/hooks/session-start.sh` | SessionStart hook, and the workflow's install step. Installs poly-crap, lawbook, and hunk when missing (`HUNK=0` skips hunk; `POLY_CRAP_VERSION` and `LAWBOOK_VERSION` pin versions), fetches `origin/main`, prints one line that becomes Claude's context. |
-| `.claude/settings.json` | Wires both hooks and pre-allows the commands the loop runs, so nothing prompts. |
-| `.claude/skills/add-module/SKILL.md` | The `/add-module` skill: a rule module and its test in the shape of `shipping.js`, then `/verify` until 0. The embedded pattern. |
-| `.claude/skills/polish/SKILL.md` | The `/polish` skill: `/simplify`, then `/verify` until 0, then a report. User-invoked only. The chained pattern. |
-| `.github/workflows/verify.yml` | Every pull request: `verify.sh` against the base branch, findings as annotations, `.verify/*.json` as an artifact. Every push to `main`: `prove.sh` and `prove-llm.sh --stub`. |
+| `.factory/config.sh` | The repo-owned contract the plugin reads: the globs, the base branch, the threshold, `syntax()`, `test_with_coverage()`, the coverage path, the tracker, Hunk. The only stack-specific lines in the loop. |
+| `.factory/verify` | A shim that finds the installed plugin (or `FACTORY_ROOT`) and runs its `verify.sh`: the six stages, the only place the order lives. |
+| `.claude/settings.json` | Pins the factory plugin and marketplace for every clone and pre-allows the commands the loop runs, so nothing prompts. The hooks come with the plugin. |
+| `.claude/skills/add-module/SKILL.md` | The `/add-module` skill: a rule module and its test in the shape of `shipping.js`, then `/factory:verify` until 0. The embedded pattern. |
+| `.github/workflows/verify.yml` | Every pull request: the plugin's action runs `verify.sh` against the base branch, findings as annotations, `.verify/*.json` as an artifact. Every push to `main`: `prove.sh` and `prove-llm.sh --stub` with a checkout of the plugin. |
 | `lawbook.yaml` | The definition of clean, above, with pass and fail fixtures for each prose standard. |
 | `lawbook.stub.yaml`, `proof/stub-judge/` | The same rules judged by a stand-in `claude` CLI, for smoke-testing the model stage with no credentials. |
 | `.poly-crap.toml` | Keeps `proof/` out of poly-crap's scoring. |
@@ -462,13 +468,15 @@ its line reading
 
 ## Adapting it
 
-Stages 1 and 3 are the only stack-specific lines in `verify.sh`. For a
-TypeScript project they become `tsc --noEmit` and `vitest run --coverage`; for
-Rust, `cargo clippy` and `cargo llvm-cov --lcov`. poly-crap reads LCOV,
-Cobertura, JaCoCo, and Go profiles. The rules in `lawbook.yaml` are regexes;
-change the globs and keep the ones you agree with. The scenarios in
-`proof/scenarios/` are the loop's own tests: when one stops being caught, the
-loop has a hole.
+Run `/factory:setup` in your repository. Stages 1 and 3 are the only
+stack-specific lines, and they live in `.factory/config.sh`: for a TypeScript
+project they become `tsc --noEmit` and `vitest run --coverage`; for Rust,
+`cargo clippy` and `cargo llvm-cov --lcov`. poly-crap reads LCOV, Cobertura,
+JaCoCo, and Go profiles. The rules in `lawbook.yaml` are regexes plus the
+clean-code standards the plugin vendors; change the globs and keep the ones
+you agree with. The scenarios in `proof/scenarios/` are the loop's own tests:
+when one stops being caught, the loop has a hole, and `/factory:lesson` adds
+the scenario that proves the fix.
 
 ## Status
 
@@ -497,4 +505,8 @@ module and its test, ran `/verify` last, and reported green in 10 turns;
 wait on and leaving the helpers the split created untested, which is why the
 skill now says to run the script in the same turn and to expect that finding;
 with that wording, Haiku 4.5 went green in 32 turns. Neither skill committed.
-The workflow has not run on GitHub yet; its first pull request is the test.
+After the move to the factory plugin, `prove.sh`, `prove-llm.sh --stub`,
+`demo.sh`, and `bench.sh` were run again through the plugin's `verify.sh`
+with identical results; the headless runs and the comparison were not
+repeated, and `/polish` is now the plugin's `/factory:review`. The workflow
+has not run on GitHub yet; its first pull request is the test.

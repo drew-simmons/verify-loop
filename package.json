@@ -10,7 +10,7 @@
   "scripts": {
     "test": "node --test",
     "coverage": "node --test --experimental-test-coverage --test-coverage-exclude='test/**' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=lcov.info",
-    "verify": "sh .claude/skills/verify/scripts/verify.sh",
+    "verify": "sh .factory/verify",
     "demo": "sh demo.sh",
     "prove": "sh proof/prove.sh",
     "bench": "sh proof/bench.sh",

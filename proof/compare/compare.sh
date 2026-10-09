@@ -32,6 +32,10 @@ WORK=${COMPARE_WORK:-$(mktemp -d)}
 ALLOWED="Read,Edit,Write,Glob,Grep,Skill,Bash(npm *),Bash(node *),Bash(git *),Bash(sh *),Bash(jq *),Bash(cat *),Bash(ls *),Bash(poly-crap *),Bash(lawbook *),Bash(HUNK=*),Bash(VERIFY_LLM=*),Bash(BASE=*)"
 
 command -v claude >/dev/null 2>&1 || { echo "compare: claude is not installed" >&2; exit 2; }
+# Arm C loads the factory plugin from a checkout: FACTORY_ROOT names its
+# plugins/factory directory, and the headless run gets it with --plugin-dir.
+[ -n "${FACTORY_ROOT:-}" ] && [ -f "$FACTORY_ROOT/skills/verify/scripts/verify.sh" ] \
+  || { echo "compare: set FACTORY_ROOT to a checkout of github.com/drew-simmons/factory/plugins/factory" >&2; exit 2; }
 
 arm_name() { case $1 in A) echo prompt-only ;; B) echo long-steering ;; C) echo loop ;; esac; }
 now_ms() {
@@ -50,15 +54,16 @@ prepare() {
     git config user.email compare@example.invalid
     git config user.name compare
     if [ "$arm" != C ]; then
-      rm -rf .claude lawbook.yaml lawbook.stub.yaml .poly-crap.toml proof demo.sh
+      rm -rf .claude .factory lawbook.yaml lawbook.stub.yaml .poly-crap.toml proof demo.sh
       cp "$SRC/$HERE/arms/README.project.md" README.md
       cp "$SRC/$HERE/arms/$(arm_name "$arm")/CLAUDE.md" CLAUDE.md
       jq 'del(.scripts.prove, .scripts.bench, .scripts.scale, .scripts.demo, .scripts.verify)' package.json >package.tmp \
         && mv package.tmp package.json
     fi
-    # Arm C is the loop as the recorded results describe it: the /verify skill
-    # and its hooks. The embedded and chained skills are not part of the experiment.
-    [ "$arm" = C ] && rm -rf .claude/skills/add-module .claude/skills/polish
+    # Arm C is the loop as the recorded results describe it: the verify skill
+    # and the hooks, which the plugin now carries. The embedded skill is not
+    # part of the experiment.
+    [ "$arm" = C ] && rm -rf .claude/skills/add-module
     git add -A
     git commit -q -m "chore: arm $arm starting state" --allow-empty
   )
@@ -89,8 +94,11 @@ run() {
   start=$(now_ms)
   (
     cd "$dir" || exit 2
+    plugin=""
+    [ "$arm" = C ] && plugin="--plugin-dir $FACTORY_ROOT"
+    # shellcheck disable=SC2086
     env -u CLAUDECODE timeout "$TIMEOUT" claude -p "$(cat "$SRC/$task")" \
-      --model "$MODEL" --output-format json --max-turns "$MAX_TURNS" \
+      --model "$MODEL" --output-format json --max-turns "$MAX_TURNS" $plugin \
       --no-session-persistence --allowedTools "$ALLOWED" </dev/null
   ) >"$out/claude.json" 2>"$out/claude.err"
   rc=$?

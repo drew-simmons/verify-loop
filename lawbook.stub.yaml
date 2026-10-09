@@ -3,7 +3,7 @@
 # `claude-code` provider runs the first `claude` on PATH, so put the stub there.
 #
 #   PATH="$PWD/proof/stub-judge:$PATH" LAWBOOK_CONFIG=lawbook.stub.yaml VERIFY_LLM=1 \
-#     sh .claude/skills/verify/scripts/verify.sh
+#     sh .factory/verify
 #
 # `extends` inherits only the rules; this file's `llm` block replaces the judge.
 version: 1

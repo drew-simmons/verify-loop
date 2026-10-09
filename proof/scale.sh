@@ -82,7 +82,7 @@ for n in $SIZES; do
     git add -A && git commit -q -m "chore: $n generated modules"
     . ./proof/scenarios/00-clean-change.sh
     apply
-    BASE=main sh .claude/skills/verify/scripts/verify.sh >verify.log 2>&1
+    BASE=main sh .factory/verify >verify.log 2>&1
     rc=$?
     [ "$rc" -eq 0 ] || { echo "scale: verify exited $rc at n=$n" >&2; tail -20 verify.log >&2; exit 1; }
     modules=$(ls src/*.js | wc -l | tr -d ' ')

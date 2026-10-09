@@ -3,7 +3,9 @@ name: verify
 # The gate Claude runs before a commit, run on every pull request so a
 # teammate's change passes the same rules. The proofs run on pushes to main
 # as well; the gate does not, because verify.sh diffs against the base branch
-# and a push to main has nothing to diff.
+# and a push to main has nothing to diff. Both come from the factory plugin
+# (github.com/drew-simmons/factory); this repository owns .factory/config.sh,
+# lawbook.yaml, and the proofs.
 on:
   pull_request:
   push:
@@ -19,7 +21,8 @@ concurrency:
 env:
   HUNK: "0" # no Hunk session in CI; session-start.sh skips the install too
   VERIFY_LLM: "0" # no credentials in CI; the prose standards stay off
-  POLY_CRAP_VERSION: "0.8.1"
+  FACTORY_REF: v0.1.0
+  POLY_CRAP_VERSION: "0.8.2"
   LAWBOOK_VERSION: "0.2.0"
 
 jobs:
@@ -29,44 +32,41 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # the merge base with the base branch
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install the loop's tools
-        run: sh .claude/hooks/session-start.sh
-      - name: The tools are present
-        run: poly-crap --version && lawbook --version
-      - name: verify
-        run: BASE="origin/$GITHUB_BASE_REF" sh .claude/skills/verify/scripts/verify.sh
-      - name: Findings as annotations
-        if: always()
-        run: |
-          [ -f .verify/comments.json ] || exit 0
-          jq -r '.comments[] | "::error file=\(.filePath),line=\(.newLine)::\(.summary)"' .verify/comments.json
-      - uses: actions/upload-artifact@v7
-        if: always()
+      - uses: drew-simmons/factory@v0.1.0
         with:
-          name: verify-findings
-          path: .verify/*.json
-          if-no-files-found: ignore
+          base: origin/${{ github.base_ref }}
+          poly-crap-version: ${{ env.POLY_CRAP_VERSION }}
+          lawbook-version: ${{ env.LAWBOOK_VERSION }}
 
   prove:
     name: the loop's own proof
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v4
+        with:
+          repository: drew-simmons/factory
+          ref: ${{ env.FACTORY_REF }}
+          path: .factory-plugin
+          persist-credentials: false
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Install the loop's tools
-        run: sh .claude/hooks/session-start.sh
+        run: |
+          CLAUDE_PLUGIN_ROOT="$PWD/.factory-plugin/plugins/factory" sh .factory-plugin/plugins/factory/hooks/session-start.sh
+          echo "$HOME/.local/share/factory/bin" >> "$GITHUB_PATH"
+          echo "FACTORY_ROOT=$PWD/.factory-plugin/plugins/factory" >> "$GITHUB_ENV"
       - name: The tools are present
         run: poly-crap --version && lawbook --version
       # BASE=HEAD: each scenario's edit is the whole diff, not the pull

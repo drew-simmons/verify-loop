@@ -9,7 +9,7 @@ cd "$DIR" || exit 2
 [ -f .verify/stop.log ] && : >"$OUT/hook_ran"
 
 # On a rescore, drop the gate files a previous scoring copied into an arm that did not have them.
-[ "$ARM" != C ] && rm -rf .claude lawbook.yaml .poly-crap.toml
+[ "$ARM" != C ] && rm -rf .claude .factory lawbook.yaml .poly-crap.toml
 rm -rf .verify lcov.info
 
 # The agent's work is everything since the arm's base commit, untracked files
@@ -23,7 +23,7 @@ git diff --stat "$BASE_SHA" >"$OUT/diff.stat"
 git diff "$BASE_SHA" >"$OUT/diff.patch"
 files_changed=$(git diff --name-only "$BASE_SHA" | wc -l | tr -d ' ')
 tests_changed=$(git diff --name-only "$BASE_SHA" -- test | wc -l | tr -d ' ')
-rules_touched=$(git diff --name-only "$BASE_SHA" -- lawbook.yaml .poly-crap.toml .claude | wc -l | tr -d ' ')
+rules_touched=$(git diff --name-only "$BASE_SHA" -- lawbook.yaml .poly-crap.toml .claude .factory | wc -l | tr -d ' ')
 lines_added=$(git diff --numstat "$BASE_SHA" | awk '{ a += $1 } END { print a + 0 }')
 lines_removed=$(git diff --numstat "$BASE_SHA" | awk '{ r += $2 } END { print r + 0 }')
 git reset -q
@@ -32,13 +32,14 @@ jq -r '.result // ""' "$OUT/claude.json" >"$OUT/result.md" 2>/dev/null
 # Did the loop's Stop hook run during the agent's session? (arm C only; it writes .verify/stop.log)
 hook_ran=false
 [ -f "$OUT/hook_ran" ] && hook_ran=true
-# The canonical gate, whatever the arm removed.
-mkdir -p .claude/skills/verify/scripts
-cp "$SRC"/.claude/skills/verify/scripts/* .claude/skills/verify/scripts/
+# The canonical gate, whatever the arm removed: the plugin's verify.sh with
+# this repository's config and rules.
+mkdir -p .factory
+cp "$SRC/.factory/config.sh" .factory/config.sh
 cp "$SRC/lawbook.yaml" lawbook.yaml
 cp "$SRC/.poly-crap.toml" .poly-crap.toml
 rm -rf .verify lcov.info
-HUNK=0 VERIFY_LLM=0 BASE="$BASE_SHA" sh .claude/skills/verify/scripts/verify.sh >"$OUT/verify.log" 2>&1
+HUNK=0 VERIFY_LLM=0 BASE="$BASE_SHA" sh "$FACTORY_ROOT/skills/verify/scripts/verify.sh" >"$OUT/verify.log" 2>&1
 gate=$?
 for f in crap lawbook; do
   [ -s ".verify/$f.json" ] && cp ".verify/$f.json" "$OUT/$f.json"
@@ -56,7 +57,7 @@ law_fail=$(jq '[.results[] | select(.status == "fail") | .findings[]] | length' 
 law_rules=$(jq -r '[.results[] | select(.status == "fail") | .id] | join("; ")' "$OUT/lawbook.json" 2>/dev/null)
 
 steering_bytes=$(wc -c <CLAUDE.md 2>/dev/null | tr -d ' ')
-[ "$ARM" = C ] && steering_bytes=$(cat CLAUDE.md .claude/skills/verify/SKILL.md 2>/dev/null | wc -c | tr -d ' ')
+[ "$ARM" = C ] && steering_bytes=$(cat CLAUDE.md "$FACTORY_ROOT/skills/verify/SKILL.md" 2>/dev/null | wc -c | tr -d ' ')
 
 jq -n \
   --arg arm "$ARM" --arg task "$(basename "$OUT")" --arg model "$MODEL" \
